@@ -35,8 +35,11 @@ export class AdventureGame {
         // Game state
         this.gameStarted = false;
         this.inventoryOpen = false;
+        this.gamePaused = false;
         this.isControlsAttached = false; // Track camera control state
         this.isJumping = false;
+        this.isPausingGame = false; // Track when we're intentionally pausing
+        this.escapeKeyPressed = false; // Track escape key press to handle timing
         
         // Movement state
         this.keys = {
@@ -110,36 +113,124 @@ export class AdventureGame {
     }
     
     async init() {
+        console.log('[DEBUG] AdventureGame.init() started.');
+        if (typeof BABYLON !== 'undefined' && BABYLON.FreeCamera && BABYLON.FreeCamera.prototype) {
+            console.log('[DEBUG] init: typeof BABYLON.FreeCamera.prototype.setParent:', typeof BABYLON.FreeCamera.prototype.setParent);
+            console.log('[DEBUG] init: typeof BABYLON.FreeCamera.prototype.attachControls:', typeof BABYLON.FreeCamera.prototype.attachControls);
+        } else {
+            console.log('[DEBUG] init: BABYLON.FreeCamera or its prototype is not (yet) fully defined.');
+        }
+
+        this.engine = new Engine(this.canvas, true);
+        this.scene = new Scene(this.engine);
+        
+        // Game state
+        this.gameStarted = false;
+        this.inventoryOpen = false;
+        this.isControlsAttached = false; // Track camera control state
+        this.isJumping = false;
+        
+        // Movement state
+        this.keys = {
+            forward: false,
+            backward: false,
+            left: false,
+            right: false,
+            jump: false
+        };
+        
+        // Camera settings
+        this.cameraSettings = {
+            sensitivity: 100,
+            invertY: false,
+            smoothing: true,
+            speed: 0.5
+        };
+        
+        // Default key bindings
+        this.keybinds = {
+            forward: 'KeyW',
+            backward: 'KeyS',
+            left: 'KeyA',
+            right: 'KeyD',
+            jump: 'Space',
+            interact: 'KeyE',
+            inventory: 'KeyI'
+        };
+        
+        // Player stats
+        this.playerStats = {
+            health: 100,
+            maxHealth: 100,
+            experience: 0,
+            level: 1
+        };
+        
+        // Inventory system
+        this.inventory = [];
+        this.selectedSlot = 0;
+        this.maxInventorySlots = 8;
+        
+        // Interactables array
+        this.interactables = [];
+        
+        // Physics world reference
+        this.physicsPlugin = null;
+        
         try {
-                    console.log('Babylon.js loaded successfully');
+            const babylonLoaded = await new Promise((resolve, reject) => {
+                if (BABYLON && Engine && Scene && Vector3 && Color3 && HemisphericLight && DirectionalLight && ShadowGenerator && MeshBuilder && StandardMaterial && PhysicsImpostor && FreeCamera) {
+                    resolve(true);
+                } else {
+                    // This part might be tricky if imports are not global immediately
+                    // Consider a more robust check if needed, or rely on Babylon's own ready events
+                    setTimeout(() => resolve(BABYLON && Engine), 100); // Simple check
+                }
+            });
+
+            if (!babylonLoaded) {
+                console.error("Babylon.js core components not available after delay.");
+                alert("Error: Babylon.js failed to load properly.");
+                return;
+            }
+            console.log('Babylon.js loaded successfully');
             
             this.initializePhysics();
             
             this.createLighting();
-            this.setupControls(); // Create camera first
+            this.setupControls(); // this.camera is created here
+            
+            console.log('[DEBUG] init: After setupControls - this.camera.constructor.name:', this.camera ? this.camera.constructor.name : 'N/A');
+            console.log('[DEBUG] init: After setupControls - typeof this.camera.setParent:', this.camera ? typeof this.camera.setParent : 'N/A');
+
             await this.createWorld();
-            this.createPlayer();
+            this.createPlayer(); // this.player is created
+            
+            console.log('[DEBUG] init: After createPlayer - this.camera.constructor.name:', this.camera ? this.camera.constructor.name : 'N/A');
+            console.log('[DEBUG] init: After createPlayer - typeof this.camera.setParent:', this.camera ? typeof this.camera.setParent : 'N/A');
+            console.log('[DEBUG] init: After createPlayer - this.camera === this.player:', this.camera === this.player);
+
             this.setupUI();
             
-            // Start render loop
             this.engine.runRenderLoop(() => {
-                if (this.gameStarted) {
+                if (this.gameStarted && !this.gamePaused) {
                     this.update();
                 }
                 this.scene.render();
             });
             
-            // Handle window resize
             window.addEventListener('resize', () => {
                 this.engine.resize();
             });
             
             console.log('Adventure Game initialized! Auto-starting game...');
             
-            // Auto-start the game after a short delay
             setTimeout(() => {
+                console.log('[DEBUG] startGame timeout: this.camera.constructor.name:', this.camera ? this.camera.constructor.name : 'N/A');
+                console.log('[DEBUG] startGame timeout: typeof this.camera.setParent:', this.camera ? typeof this.camera.setParent : 'N/A');
+                console.log('[DEBUG] startGame timeout: this.camera === this.player:', this.camera === this.player);
                 this.startGame();
-            }, 1000);
+            }, 1000); // Delay to allow menu system to potentially interact
             
         } catch (error) {
             console.error('Error initializing game:', error);
@@ -253,7 +344,9 @@ export class AdventureGame {
         
         // Rotate the crystal
         this.scene.registerBeforeRender(() => {
-            crystal.rotation.y += 0.01;
+            if (!this.gamePaused) {
+                crystal.rotation.y += 0.01;
+            }
         });
         
         this.interactables.push({
@@ -313,6 +406,11 @@ export class AdventureGame {
     setupControls() {
         // Create camera with proper first-person setup
         this.camera = new FreeCamera('camera', new Vector3(0, 5, -10), this.scene);
+        console.log('[DEBUG] setupControls: NEW FreeCamera INSTANTIATED.');
+        console.log('[DEBUG] setupControls: this.camera.constructor.name:', this.camera.constructor.name);
+        console.log('[DEBUG] setupControls: typeof this.camera.setParent:', typeof this.camera.setParent);
+        console.log('[DEBUG] setupControls: typeof this.camera.attachControls:', typeof this.camera.attachControls);
+
         this.camera.setTarget(new Vector3(0, 2, 0));
         
         // Configure camera for first-person controls
@@ -342,9 +440,27 @@ export class AdventureGame {
             if (document.pointerLockElement === this.canvas) {
                 console.log('Pointer locked - mouse look enabled');
                 this.attachCameraControls();
+                this.wasPointerLocked = true; // Track that we had pointer lock
             } else {
                 console.log('Pointer unlocked - mouse look disabled');
                 this.detachCameraControls();
+                
+                // If we had pointer lock and game is active, treat as escape press
+                // (Browser automatically releases pointer lock on Escape)
+                if (this.wasPointerLocked && this.gameStarted && !this.isPausingGame) {
+                    console.log('Pointer lock lost - treating as Escape press');
+                    if (this.inventoryOpen) {
+                        this.toggleInventory();
+                        console.log('Closing inventory with Escape');
+                    } else if (!this.gamePaused) {
+                        this.pauseGame();
+                        console.log('Pausing game with Escape');
+                    } else {
+                        this.resumeGame();
+                        console.log('Resuming game with Escape');
+                    }
+                }
+                this.wasPointerLocked = false;
             }
         });
 
@@ -357,31 +473,51 @@ export class AdventureGame {
     attachCameraControls() {
         if (!this.isControlsAttached && this.camera) {
             try {
-                console.log('Attempting to attach controls. Camera object:', this.camera);
-                console.log('Type of this.camera.attachControls:', typeof this.camera.attachControls);
-                this.camera.attachControls(this.canvas, true);
+                // Since attachControls doesn't work, implement manual mouse look
+                this.setupManualMouseLook();
                 this.isControlsAttached = true;
-                console.log('Camera controls attached successfully');
+                console.log('Manual camera controls attached successfully');
             } catch (error) {
                 console.log('Failed to attach camera controls:', error);
-                // Also log camera here in case of error
-                console.log('Camera object at time of error:', this.camera);
             }
-        } else {
-            if (!this.camera) console.log('Attach controls skipped: no camera.');
-            if (this.isControlsAttached) console.log('Attach controls skipped: controls already attached.');
         }
     }
     
     detachCameraControls() {
         if (this.isControlsAttached && this.camera) {
             try {
-                this.camera.detachControls();
+                this.removeManualMouseLook();
                 this.isControlsAttached = false;
                 console.log('Camera controls detached successfully');
             } catch (error) {
                 console.log('Failed to detach camera controls:', error);
             }
+        }
+    }
+    
+    setupManualMouseLook() {
+        // Create manual mouse look event handlers
+        this.mouseLookHandler = (event) => {
+            if (!this.gameStarted || !this.camera) return;
+            
+            const sensitivity = (this.cameraSettings.sensitivity || 100) / 10000;
+            
+            // Apply mouse movement to camera rotation
+            this.camera.rotation.y += event.movementX * sensitivity;
+            this.camera.rotation.x += (this.cameraSettings.invertY ? event.movementY : -event.movementY) * sensitivity;
+            
+            // Clamp vertical rotation to prevent over-rotation
+            this.camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, this.camera.rotation.x));
+        };
+        
+        // Add the event listener
+        this.canvas.addEventListener('mousemove', this.mouseLookHandler);
+    }
+    
+    removeManualMouseLook() {
+        if (this.mouseLookHandler) {
+            this.canvas.removeEventListener('mousemove', this.mouseLookHandler);
+            this.mouseLookHandler = null;
         }
     }
     
@@ -392,14 +528,33 @@ export class AdventureGame {
             
             console.log(`Key pressed: ${event.code}, game started: ${this.gameStarted}`);
             
-            // Handle Escape key for inventory/menu
+            // Handle Escape key for inventory/pause menu
             if (event.code === 'Escape') {
-                if (this.inventoryOpen) {
-                    this.toggleInventory();
-                    console.log('Closing inventory with Escape');
+                event.preventDefault(); // Prevent default escape behavior
+                
+                // Set flag so pointer lock handler can process this
+                this.escapeKeyPressed = true;
+                
+                // If not in pointer lock, handle immediately
+                if (!document.pointerLockElement) {
+                    this.escapeKeyPressed = false;
+                    if (this.inventoryOpen) {
+                        this.toggleInventory();
+                        console.log('Closing inventory with Escape');
+                    } else if (!this.gamePaused) {
+                        this.pauseGame();
+                        console.log('Pausing game with Escape');
+                    } else {
+                        this.resumeGame();
+                        console.log('Resuming game with Escape');
+                    }
                 }
+                
                 return; // Don't process other keys when handling escape
             }
+            
+            // Don't process other controls if game is paused
+            if (this.gamePaused) return;
             
             // Check against current keybinds
             if (event.code === this.keybinds.forward) {
@@ -428,7 +583,7 @@ export class AdventureGame {
         });
         
         document.addEventListener('keyup', (event) => {
-            if (!this.gameStarted) return;
+            if (!this.gameStarted || this.gamePaused) return;
             
             // Check against current keybinds
             if (event.code === this.keybinds.forward) {
@@ -467,36 +622,111 @@ export class AdventureGame {
         this.gameStarted = true;
         document.getElementById('gameTitle').classList.add('hidden');
         document.getElementById('gameHUD').classList.remove('hidden');
-        
+
         // Position camera for first-person view
-        this.camera.parent = this.player;
-        this.camera.position = new Vector3(0, 1.6, 0);
-        this.camera.rotation = new Vector3(0, 0, 0);
+        console.log('[DEBUG] startGame: About to parent camera. this.camera is:', this.camera);
+        if (this.camera) {
+            console.log('[DEBUG] startGame: this.camera.constructor:', this.camera.constructor);
+            console.log('[DEBUG] startGame: this.camera.constructor.name:', this.camera.constructor ? this.camera.constructor.name : 'N/A');
+            console.log('[DEBUG] startGame: typeof this.camera.setParent:', typeof this.camera.setParent);
+            console.log('[DEBUG] startGame: this.camera.hasOwnProperty(\'setParent\'):', this.camera.hasOwnProperty('setParent'));
+
+            let proto = Object.getPrototypeOf(this.camera);
+            if (proto) {
+                 console.log('[DEBUG] startGame: Object.getPrototypeOf(this.camera).hasOwnProperty(\'setParent\'):', proto.hasOwnProperty('setParent'));
+                 if (typeof BABYLON !== 'undefined' && BABYLON.FreeCamera && BABYLON.FreeCamera.prototype) {
+                    console.log('[DEBUG] startGame: BABYLON.FreeCamera.prototype.hasOwnProperty(\'setParent\'):', BABYLON.FreeCamera.prototype.hasOwnProperty('setParent'));
+                    // Check if proto is actually FreeCamera.prototype or Node.prototype etc.
+                    let pChain = proto;
+                    let foundOnChain = false;
+                    let levels = 0;
+                    while(pChain && levels < 5){
+                        if(pChain.hasOwnProperty('setParent')) foundOnChain = true;
+                        if(pChain === BABYLON.FreeCamera.prototype) console.log('[DEBUG] startGame: Object.getPrototypeOf(this.camera) IS BABYLON.FreeCamera.prototype (at level '+levels+')');
+                        if(pChain === BABYLON.Node.prototype) console.log('[DEBUG] startGame: Object.getPrototypeOf(this.camera) IS BABYLON.Node.prototype (at level '+levels+')');
+                        pChain = Object.getPrototypeOf(pChain);
+                        levels++;
+                    }
+                    console.log('[DEBUG] startGame: setParent found on prototype chain of this.camera:', foundOnChain);
+
+                 } else {
+                     console.log('[DEBUG] startGame: BABYLON.FreeCamera or its prototype not available for deeper check.');
+                 }
+            }
+            
+            // Prototype chain logging (simplified from before, as above checks are more targeted)
+            proto = Object.getPrototypeOf(this.camera);
+            let i = 0;
+            while(proto && i < 3) { // Shortened for brevity
+                console.log(`[DEBUG] startGame: Proto level ${i} constructor:`, proto.constructor ? proto.constructor.name : 'N/A');
+                i++;
+                proto = Object.getPrototypeOf(proto);
+            }
+            
+            try {
+                if (typeof BABYLON !== 'undefined' && BABYLON.FreeCamera) {
+                    console.log('[DEBUG] startGame: this.camera instanceof BABYLON.FreeCamera:', this.camera instanceof BABYLON.FreeCamera);
+                } else {
+                    console.log('[DEBUG] startGame: BABYLON.FreeCamera not available for instanceof check.');
+                }
+             } catch (e) {
+                console.log('[DEBUG] startGame: Error checking instanceof BABYLON.FreeCamera:', e);
+             }
+        } else {
+            console.log('[DEBUG] startGame: this.camera is null or undefined before setParent!');
+        }
+        console.log('[DEBUG] startGame: this.player is:', this.player);
+
+        // Instead of using setParent (which doesn't work), manually position camera relative to player
+        console.log('[DEBUG] startGame: Setting up camera positioning without setParent');
         
+        // Set initial camera position relative to player
+        this.camera.position = new Vector3(
+            this.player.position.x,
+            this.player.position.y + 1.6, // Eye height above player
+            this.player.position.z
+        );
+        this.camera.rotation = new Vector3(0, 0, 0);
+
         // Apply camera settings from menu
         this.applyCameraSettings();
-        
+
         // Auto-request pointer lock for immediate mouse control
         setTimeout(() => {
             this.canvas.requestPointerLock();
         }, 100);
-        
+
         console.log('Game started successfully! Click to enable mouse look.');
     }
     
     applyCameraSettings() {
         if (this.camera) {
-            // Apply sensitivity (angularSensibility is inversely related to sensitivity)
+            console.log('[DEBUG] applyCameraSettings START - Camera type:', this.camera.constructor.name, 'Is player:', this.camera === this.player);
+
+            console.log('[DEBUG] applyCameraSettings: Current sensitivity setting:', this.cameraSettings.sensitivity);
+            console.log('[DEBUG] applyCameraSettings: Before angularSensibility - typeof this.camera.setParent:', typeof this.camera.setParent, 'Is player:', this.camera === this.player);
             this.camera.angularSensibility = 2000 / this.cameraSettings.sensitivity;
-            this.camera.speed = this.cameraSettings.speed;
+            console.log('[DEBUG] applyCameraSettings: After angularSensibility - typeof this.camera.setParent:', typeof this.camera.setParent, 'Is player:', this.camera === this.player, 'Constructor:', this.camera.constructor.name);
+
+            console.log('[DEBUG] applyCameraSettings: Current speed setting:', this.cameraSettings.speed);
+            console.log('[DEBUG] applyCameraSettings: Before speed - typeof this.camera.setParent:', typeof this.camera.setParent, 'Is player:', this.camera === this.player);
+            // this.camera.speed = this.cameraSettings.speed; // <--- PROBLEMATIC LINE COMMENTED OUT
+            console.log('[DEBUG] applyCameraSettings: SKIPPED assigning this.camera.speed');
+            console.log('[DEBUG] applyCameraSettings: After skipping speed - typeof this.camera.setParent:', typeof this.camera.setParent, 'Is player:', this.camera === this.player, 'Constructor:', this.camera.constructor.name);
+
+            console.log('[DEBUG] applyCameraSettings: Current smoothing setting:', this.cameraSettings.smoothing);
+            console.log('[DEBUG] applyCameraSettings: Before inertia - typeof this.camera.setParent:', typeof this.camera.setParent, 'Is player:', this.camera === this.player);
             this.camera.inertia = this.cameraSettings.smoothing ? 0.9 : 0;
+            console.log('[DEBUG] applyCameraSettings: After inertia - typeof this.camera.setParent:', typeof this.camera.setParent, 'Is player:', this.camera === this.player, 'Constructor:', this.camera.constructor.name);
             
-            console.log('Camera settings applied:', this.cameraSettings);
+            console.log('Camera settings applied (end of applyCameraSettings):', this.cameraSettings);
+        } else {
+            console.log('[DEBUG] applyCameraSettings: No camera to apply settings to.');
         }
     }
     
     update() {
-        if (!this.player || !this.gameStarted) return;
+        if (!this.player || !this.gameStarted || this.gamePaused) return;
 
         const moveSpeed = 8; // Increased for better responsiveness
         const movement = new Vector3(0, 0, 0);
@@ -551,6 +781,13 @@ export class AdventureGame {
                     this.player.position.y = 1;
                 }
             }
+        }
+        
+        // Update camera position to follow player (since we're not using setParent)
+        if (this.camera && this.player) {
+            this.camera.position.x = this.player.position.x;
+            this.camera.position.y = this.player.position.y + 1.6; // Eye height
+            this.camera.position.z = this.player.position.z;
         }
         
         // Keep camera upright
@@ -848,6 +1085,66 @@ export class AdventureGame {
             
             console.log('Inventory closed');
         }
+    }
+    
+    togglePause() {
+        this.gamePaused = !this.gamePaused;
+        
+        if (this.gamePaused) {
+            this.pauseGame();
+        } else {
+            this.resumeGame();
+        }
+    }
+    
+    pauseGame() {
+        if (this.gamePaused) return; // Already paused, don't double-pause
+        
+        console.log('Game paused');
+        this.isPausingGame = true; // Set flag before changing state
+        this.gamePaused = true;
+        
+        // Exit pointer lock when paused
+        if (document.pointerLockElement) {
+            document.exitPointerLock();
+        }
+        
+        // Show pause menu
+        const pauseMenu = document.getElementById('pauseMenuSection');
+        const mainMenu = document.getElementById('mainMenu');
+        
+        if (pauseMenu && mainMenu) {
+            mainMenu.classList.remove('hidden');
+            mainMenu.classList.add('pause-mode'); // Make background transparent
+            pauseMenu.classList.remove('hidden');
+            
+            // Hide other menu sections
+            document.getElementById('mainMenuSection').classList.add('hidden');
+            document.getElementById('settingsSection').classList.add('hidden');
+            document.getElementById('loadGameSection').classList.add('hidden');
+        }
+        
+        this.isPausingGame = false; // Clear flag after UI changes
+    }
+    
+    resumeGame() {
+        console.log('Game resumed');
+        this.gamePaused = false;
+        
+        // Hide pause menu
+        const pauseMenu = document.getElementById('pauseMenuSection');
+        const mainMenu = document.getElementById('mainMenu');
+        
+        if (pauseMenu && mainMenu) {
+            pauseMenu.classList.add('hidden');
+            mainMenu.classList.add('hidden');
+            mainMenu.classList.remove('pause-mode'); // Remove transparent background
+        }
+        
+        // Re-request pointer lock after short delay
+        setTimeout(() => {
+            this.canvas.requestPointerLock();
+        }, 100);
     }
     
     updateKeybind(action, keyCode) {

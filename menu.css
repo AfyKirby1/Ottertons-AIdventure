@@ -15,6 +15,11 @@
     transition: opacity 0.5s ease-in-out;
 }
 
+/* Transparent background when game is paused (to show game behind) */
+.menu-container.pause-mode {
+    background: transparent;
+}
+
 .menu-container.hidden {
     opacity: 0;
     pointer-events: none;
@@ -448,6 +453,71 @@
     border-radius: 5px;
 }
 
+/* Pause Menu Styles */
+.pause-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid #ffd700;
+    border-radius: 15px;
+    padding: 40px;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 10px 30px rgba(255, 215, 0, 0.3);
+    min-width: 400px;
+}
+
+.pause-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.pause-header h1 {
+    font-size: 3rem;
+    color: #ffd700;
+    text-shadow: 
+        0 0 10px #ffd700,
+        0 0 20px #ffd700,
+        0 0 30px #ffd700;
+    margin: 0;
+    letter-spacing: 2px;
+    animation: pauseGlow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes pauseGlow {
+    0% { 
+        text-shadow: 
+            0 0 10px #ffd700,
+            0 0 20px #ffd700,
+            0 0 30px #ffd700;
+    }
+    100% { 
+        text-shadow: 
+            0 0 15px #ffd700,
+            0 0 25px #ffd700,
+            0 0 35px #ffd700,
+            0 0 45px #ff8c00;
+    }
+}
+
+.pause-menu-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+}
+
+.pause-menu-buttons .menu-button {
+    width: 250px;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+}
+
+.pause-menu-buttons .menu-button:hover {
+    transform: translateY(-2px) scale(1.05);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .game-title h1 {
@@ -482,5 +552,19 @@
     .menu-actions {
         flex-direction: column;
         align-items: center;
+    }
+    
+    .pause-container {
+        min-width: 300px;
+        padding: 30px 20px;
+    }
+    
+    .pause-header h1 {
+        font-size: 2.5rem;
+    }
+    
+    .pause-menu-buttons .menu-button {
+        width: 200px;
+        font-size: 1rem;
     }
 } 

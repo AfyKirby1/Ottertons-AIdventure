@@ -107,6 +107,42 @@ window.updateSmoothCamera = (checked) => {
     menuSystem.updateSmoothCamera(checked);
 };
 
+// Pause Menu Functions
+window.resumeGame = () => {
+    if (game) {
+        game.resumeGame();
+    }
+};
+
+window.showPauseSettings = () => {
+    const menuSystem = initMenuSystem();
+    menuSystem.showPauseSettings();
+};
+
+window.quitToMainMenu = () => {
+    if (game) {
+        // Reset game state
+        game.gamePaused = false;
+        game.gameStarted = false;
+        
+        // Hide pause menu and show main menu
+        const pauseMenu = document.getElementById('pauseMenuSection');
+        const mainMenuSection = document.getElementById('mainMenuSection');
+        
+        if (pauseMenu) pauseMenu.classList.add('hidden');
+        if (mainMenuSection) mainMenuSection.classList.remove('hidden');
+        
+        // Reset UI
+        document.getElementById('gameHUD').classList.add('hidden');
+        document.getElementById('gameTitle').classList.remove('hidden');
+        
+        // Exit pointer lock
+        if (document.pointerLockElement) {
+            document.exitPointerLock();
+        }
+    }
+};
+
 function init() {
     initMenuSystem();
 }

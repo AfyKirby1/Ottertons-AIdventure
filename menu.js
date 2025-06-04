@@ -391,11 +391,12 @@ export class MenuSystem {
     }
     
     applySettings() {
+        console.log('[DEBUG] MenuSystem.applySettings called. Testing with updateCameraSettings enabled.');
         if (this.gameInstance) {
             // Apply graphics settings
             this.applyGraphicsQuality(this.settings.graphics);
             
-            // Apply camera settings using the new system
+            // RE-ENABLING BLOCK 1
             if (this.gameInstance.updateCameraSettings) {
                 this.gameInstance.updateCameraSettings({
                     sensitivity: this.settings.sensitivity,
@@ -405,12 +406,12 @@ export class MenuSystem {
                 });
             }
             
-            // Apply FOV directly
-            if (this.gameInstance.camera) {
-                this.gameInstance.camera.fov = (this.settings.fov * Math.PI) / 180;
-            }
+            // KEEPING FOV COMMENTED OUT FOR NOW
+            // if (this.gameInstance.camera) {
+            //     this.gameInstance.camera.fov = (this.settings.fov * Math.PI) / 180;
+            // }
             
-            // Apply keybinds
+            // Apply keybinds (should be safe)
             Object.entries(this.settings.keybinds).forEach(([action, keyCode]) => {
                 this.gameInstance.updateKeybind(action, keyCode);
             });
@@ -475,5 +476,22 @@ export class MenuSystem {
     hide() {
         const menu = document.getElementById('mainMenu');
         menu.classList.add('hidden');
+    }
+    
+    // Pause Menu Functions
+    showPauseMenu() {
+        this.showSection('pauseMenu');
+    }
+    
+    showPauseSettings() {
+        // Show settings but remember we came from pause menu
+        this.currentSection = 'pauseMenu'; // Keep track of where we came from
+        this.showSettings();
+        
+        // Update the settings back button to return to pause menu
+        const cancelButton = document.querySelector('.menu-actions .action-button.secondary');
+        if (cancelButton) {
+            cancelButton.onclick = () => this.showPauseMenu();
+        }
     }
 } 
