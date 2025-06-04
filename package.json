@@ -1,0 +1,22 @@
+{
+  "name": "babylon-adventure-game",
+  "version": "1.0.0",
+  "description": "A web-based adventure game built with Babylon.js 8.0",
+  "main": "index.html",
+  "scripts": {
+    "dev": "live-server --port=3000",
+    "start": "live-server --port=3000"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^8.0.0",
+    "@babylonjs/loaders": "^8.0.0",
+    "@babylonjs/materials": "^8.0.0",
+    "@babylonjs/gui": "^8.0.0"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  },
+  "keywords": ["babylon.js", "game", "adventure", "3d", "web"],
+  "author": "",
+  "license": "MIT"
+} 

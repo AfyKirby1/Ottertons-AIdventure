@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Babylon.js Adventure Game - Simple Version</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #gameCanvas {
+            width: 100%;
+            height: 100vh;
+            display: block;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            text-align: center;
+            background: rgba(0,0,0,0.8);
+            padding: 30px;
+            border-radius: 15px;
+            pointer-events: auto;
+        }
+        
+        #ui h1 {
+            color: #ffd700;
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        
+        #ui p {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            background: #ffd700;
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            background: #ffed4e;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="ui">
+        <h1>Adventure Quest</h1>
+        <p>A simple Babylon.js test</p>
+        <button onclick="startGame()">Start Game</button>
+        <p id="status">Loading...</p>
+    </div>
+
+    <!-- Babylon.js Core -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    
+    <script>
+        let engine, scene, camera;
+        
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+            console.log(message);
+        }
+        
+        function startGame() {
+            try {
+                updateStatus('Starting game...');
+                
+                // Check if Babylon.js loaded
+                if (typeof BABYLON === 'undefined') {
+                    updateStatus('Error: Babylon.js not loaded!');
+                    return;
+                }
+                
+                updateStatus('Babylon.js loaded successfully');
+                
+                const canvas = document.getElementById('gameCanvas');
+                engine = new BABYLON.Engine(canvas, true);
+                scene = new BABYLON.Scene(engine);
+                
+                updateStatus('Engine and scene created');
+                
+                // Create camera
+                camera = new BABYLON.FreeCamera('camera', new BABYLON.Vector3(0, 5, -10), scene);
+                camera.setTarget(BABYLON.Vector3.Zero());
+                camera.attachControls(canvas, true);
+                
+                // Create light
+                const light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(0, 1, 0), scene);
+                
+                // Create ground
+                const ground = BABYLON.MeshBuilder.CreateGround('ground', {width: 10, height: 10}, scene);
+                const groundMaterial = new BABYLON.StandardMaterial('groundMat', scene);
+                groundMaterial.diffuseColor = new BABYLON.Color3(0.2, 0.6, 0.2);
+                ground.material = groundMaterial;
+                
+                // Create a spinning cube
+                const box = BABYLON.MeshBuilder.CreateBox('box', {size: 2}, scene);
+                box.position.y = 1;
+                const boxMaterial = new BABYLON.StandardMaterial('boxMat', scene);
+                boxMaterial.diffuseColor = new BABYLON.Color3(1, 0.5, 0);
+                box.material = boxMaterial;
+                
+                // Animation
+                scene.registerBeforeRender(() => {
+                    box.rotation.y += 0.02;
+                });
+                
+                // Hide UI and start render loop
+                document.getElementById('ui').classList.add('hidden');
+                
+                engine.runRenderLoop(() => {
+                    scene.render();
+                });
+                
+                // Handle resize
+                window.addEventListener('resize', () => {
+                    engine.resize();
+                });
+                
+                updateStatus('Game started successfully!');
+                
+            } catch (error) {
+                updateStatus('Error: ' + error.message);
+                console.error('Detailed error:', error);
+            }
+        }
+        
+        // Auto-start when Babylon.js loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (typeof BABYLON !== 'undefined') {
+                    updateStatus('Ready to start! Click the button.');
+                } else {
+                    updateStatus('Failed to load Babylon.js. Check your internet connection.');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html> 

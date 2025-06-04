@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cannon-es Physics Test</title>
+    <style>
+        body { margin: 0; padding: 20px; background: #000; color: #fff; font-family: Arial; }
+        canvas { border: 1px solid #333; }
+        #status { margin-bottom: 20px; }
+        .success { color: #0f0; }
+        .error { color: #f00; }
+        .warning { color: #ff0; }
+    </style>
+</head>
+<body>
+    <div id="status">Loading physics test...</div>
+    <canvas id="testCanvas" width="800" height="600"></canvas>
+
+    <!-- Cannon-es Physics Engine IIFE -->
+    <script src="https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.iife.js"></script>
+    <!-- Babylon.js Core -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = message;
+            statusDiv.appendChild(div);
+            console.log(message);
+        }
+
+        async function testPhysics() {
+            try {
+                // Test Cannon-es loading
+                log('Testing Cannon-es loading...', 'info');
+                
+                if (typeof CANNON === 'undefined') {
+                    log('❌ CANNON not found in global scope', 'error');
+                    log('Available globals: ' + Object.keys(window).filter(k => k.includes('CANNON')).join(', '), 'info');
+                    return;
+                } else {
+                    log('✅ CANNON found in global scope', 'success');
+                }
+
+                // Test Babylon.js
+                if (typeof BABYLON === 'undefined') {
+                    log('❌ BABYLON not found', 'error');
+                    return;
+                } else {
+                    log('✅ BABYLON.js loaded successfully', 'success');
+                }
+
+                // Create engine and scene
+                const canvas = document.getElementById('testCanvas');
+                const engine = new BABYLON.Engine(canvas, true);
+                const scene = new BABYLON.Scene(engine);
+                
+                log('✅ Engine and scene created', 'success');
+
+                // Try to enable physics
+                try {
+                    scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), new BABYLON.CannonJSPlugin());
+                    log('✅ Physics enabled successfully with Cannon-es!', 'success');
+                } catch (physicsError) {
+                    log('❌ Physics failed: ' + physicsError.message, 'error');
+                    return;
+                }
+
+                // Create camera
+                const camera = new BABYLON.FreeCamera('camera', new BABYLON.Vector3(0, 5, -10), scene);
+                camera.setTarget(BABYLON.Vector3.Zero());
+                camera.attachControls(canvas, true);
+
+                // Create light
+                const light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(0, 1, 0), scene);
+
+                // Create ground with physics
+                const ground = BABYLON.MeshBuilder.CreateGround('ground', {width: 10, height: 10}, scene);
+                ground.physicsImpostor = new BABYLON.PhysicsImpostor(ground, BABYLON.PhysicsImpostor.BoxImpostor, 
+                    { mass: 0, restitution: 0.7 }, scene);
+                
+                log('✅ Ground with physics created', 'success');
+
+                // Create falling boxes
+                for (let i = 0; i < 3; i++) {
+                    const box = BABYLON.MeshBuilder.CreateBox('box' + i, {size: 1}, scene);
+                    box.position = new BABYLON.Vector3(i * 2 - 2, 5 + i, 0);
+                    box.physicsImpostor = new BABYLON.PhysicsImpostor(box, BABYLON.PhysicsImpostor.BoxImpostor, 
+                        { mass: 1, restitution: 0.7 }, scene);
+                }
+
+                log('✅ Falling boxes created', 'success');
+
+                // Start render loop
+                engine.runRenderLoop(() => {
+                    scene.render();
+                });
+
+                log('✅ Render loop started - You should see falling boxes!', 'success');
+                log('Physics test completed successfully! 🎉', 'success');
+
+            } catch (error) {
+                log('❌ Test failed: ' + error.message, 'error');
+                console.error('Full error:', error);
+            }
+        }
+
+        // Wait for scripts to load
+        window.addEventListener('load', () => {
+            setTimeout(testPhysics, 500);
+        });
+    </script>
+</body>
+</html> 

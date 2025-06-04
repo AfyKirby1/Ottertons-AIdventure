@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Babylon.js Adventure Game</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="menu.css">
+    
+    <!-- Load Babylon.js from CDN -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    
+    <!-- Load cannon physics engine locally -->
+    <script src="vendor/cannon.js"></script>
+    
+    <!-- Load the main module to initialize global functions -->
+    <script type="module" src="main.js"></script>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- Main Menu System -->
+        <div id="mainMenu" class="menu-container">
+            <div class="menu-background"></div>
+            
+            <!-- Main Menu -->
+            <div id="mainMenuSection" class="menu-section">
+                <div class="game-title">
+                    <h1>Adventure Quest</h1>
+                    <div class="subtitle">Explore. Discover. Adventure.</div>
+                </div>
+                
+                <div class="main-menu-buttons">
+                    <button class="menu-button" onclick="startNewGame()">New Game</button>
+                    <button class="menu-button" onclick="showLoadGame()">Load Game</button>
+                    <button class="menu-button" onclick="showSettings()">Settings</button>
+                </div>
+            </div>
+            
+            <!-- Load Game Screen -->
+            <div id="loadGameSection" class="menu-section hidden">
+                <div class="loading-screen">
+                    <div class="game-title">
+                        <h1>Load Game</h1>
+                    </div>
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Loading your adventure...</div>
+                    <div class="loading-progress">
+                        <div class="loading-progress-bar" id="loadingProgressBar"></div>
+                    </div>
+                    <div class="menu-actions">
+                        <button class="action-button secondary" onclick="showMainMenu()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Settings Screen -->
+            <div id="settingsSection" class="menu-section hidden">
+                <div class="settings-container">
+                    <div class="settings-header">
+                        <h2>Settings</h2>
+                    </div>
+                    
+                    <div class="settings-tabs">
+                        <button class="settings-tab active" onclick="showSettingsTab('video')">Video</button>
+                        <button class="settings-tab" onclick="showSettingsTab('audio')">Audio</button>
+                        <button class="settings-tab" onclick="showSettingsTab('keybind')">Keybinds</button>
+                        <button class="settings-tab" onclick="showSettingsTab('camera')">Camera Controls</button>
+                    </div>
+                    
+                    <div class="settings-content">
+                        <!-- Video Settings -->
+                        <div id="videoSettings" class="settings-panel active">
+                            <div class="setting-group">
+                                <label class="setting-label">Graphics Quality</label>
+                                <select class="setting-input" id="graphicsQuality">
+                                    <option value="low">Low</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="ultra">Ultra</option>
+                                </select>
+                            </div>
+                            
+                            <div class="setting-group">
+                                <div class="setting-row">
+                                    <label class="setting-label">Field of View</label>
+                                    <span class="setting-value" id="fovValue">75°</span>
+                                </div>
+                                <input type="range" class="setting-slider" id="fovSlider" min="60" max="120" value="75" oninput="updateFOV(this.value)">
+                            </div>
+                            
+                            <div class="setting-group">
+                                <div class="setting-row">
+                                    <label class="setting-label">Mouse Sensitivity</label>
+                                    <span class="setting-value" id="sensitivityValue">1.0</span>
+                                </div>
+                                <input type="range" class="setting-slider" id="sensitivitySlider" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateSensitivity(this.value)">
+                            </div>
+                        </div>
+                        
+                        <!-- Audio Settings -->
+                        <div id="audioSettings" class="settings-panel">
+                            <div class="setting-group">
+                                <div class="setting-row">
+                                    <label class="setting-label">Master Volume</label>
+                                    <span class="setting-value" id="masterVolumeValue">100%</span>
+                                </div>
+                                <input type="range" class="setting-slider" id="masterVolumeSlider" min="0" max="100" value="100" oninput="updateMasterVolume(this.value)">
+                            </div>
+                            
+                            <div class="setting-group">
+                                <div class="setting-row">
+                                    <label class="setting-label">Music Volume</label>
+                                    <span class="setting-value" id="musicVolumeValue">80%</span>
+                                </div>
+                                <input type="range" class="setting-slider" id="musicVolumeSlider" min="0" max="100" value="80" oninput="updateMusicVolume(this.value)">
+                            </div>
+                            
+                            <div class="setting-group">
+                                <div class="setting-row">
+                                    <label class="setting-label">Sound Effects Volume</label>
+                                    <span class="setting-value" id="sfxVolumeValue">90%</span>
+                                </div>
+                                <input type="range" class="setting-slider" id="sfxVolumeSlider" min="0" max="100" value="90" oninput="updateSFXVolume(this.value)">
+                            </div>
+                        </div>
+                        
+                        <!-- Keybind Settings -->
+                        <div id="keybindSettings" class="settings-panel">
+                            <div class="setting-group">
+                                <div class="keybind-item">
+                                    <span class="keybind-label">Move Forward</span>
+                                    <button class="keybind-button" onclick="recordKeybind('forward', this)">W</button>
+                                </div>
+                                <div class="keybind-item">
+                                    <span class="keybind-label">Move Backward</span>
+                                    <button class="keybind-button" onclick="recordKeybind('backward', this)">S</button>
+                                </div>
+                                <div class="keybind-item">
+                                    <span class="keybind-label">Move Left</span>
+                                    <button class="keybind-button" onclick="recordKeybind('left', this)">A</button>
+                                </div>
+                                <div class="keybind-item">
+                                    <span class="keybind-label">Move Right</span>
+                                    <button class="keybind-button" onclick="recordKeybind('right', this)">D</button>
+                                </div>
+                                <div class="keybind-item">
+                                    <span class="keybind-label">Interact</span>
+                                    <button class="keybind-button" onclick="recordKeybind('interact', this)">E</button>
+                                </div>
+                                <div class="keybind-item">
+                                    <span class="keybind-label">Jump</span>
+                                    <button class="keybind-button" onclick="recordKeybind('jump', this)">Space</button>
+                                </div>
+                                <div class="keybind-item">
+                                    <span class="keybind-label">Open Inventory</span>
+                                    <button class="keybind-button" onclick="recordKeybind('inventory', this)">I</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Camera Controls Settings -->
+                        <div id="cameraSettings" class="settings-panel">
+                            <div class="setting-group">
+                                <div class="setting-row">
+                                    <label class="setting-label">Invert Mouse Y</label>
+                                    <input type="checkbox" class="setting-checkbox" id="invertMouseY" onchange="updateInvertMouseY(this.checked)">
+                                </div>
+                            </div>
+                            
+                            <div class="setting-group">
+                                <div class="setting-row">
+                                    <label class="setting-label">Camera Speed</label>
+                                    <span class="setting-value" id="cameraSpeedValue">1.0</span>
+                                </div>
+                                <input type="range" class="setting-slider" id="cameraSpeedSlider" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateCameraSpeed(this.value)">
+                            </div>
+                            
+                            <div class="setting-group">
+                                <div class="setting-row">
+                                    <label class="setting-label">Zoom Speed</label>
+                                    <span class="setting-value" id="zoomSpeedValue">1.0</span>
+                                </div>
+                                <input type="range" class="setting-slider" id="zoomSpeedSlider" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateZoomSpeed(this.value)">
+                            </div>
+                            
+                            <div class="setting-group">
+                                <div class="setting-row">
+                                    <label class="setting-label">Smooth Camera</label>
+                                    <input type="checkbox" class="setting-checkbox" id="smoothCamera" checked onchange="updateSmoothCamera(this.checked)">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="menu-actions">
+                        <button class="action-button" onclick="saveSettings()">Save</button>
+                        <button class="action-button secondary" onclick="showMainMenu()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- UI Overlay -->
+        <div id="uiOverlay">
+            <div id="gameTitle" class="hidden">
+                <h1>Adventure Quest</h1>
+                <p>WASD to move • Mouse to look around • SPACE to jump<br>
+                E to interact • I to toggle inventory • Click to start!</p>
+            </div>
+            
+            <div id="gameHUD" class="hidden">
+                <div id="healthBar">
+                    <div class="bar-container">
+                        <div class="bar-fill health-fill" id="healthFill"></div>
+                        <span class="bar-text">Health: <span id="healthText">100</span>/100</span>
+                    </div>
+                </div>
+                
+                <div id="inventory" class="inventory-container">
+                    <div class="inventory-header">
+                        <h3>Inventory</h3>
+                        <span class="inventory-instructions">Press 'I' to close</span>
+                    </div>
+                    <div class="inventory-grid" id="inventoryGrid">
+                        <!-- 5x5 grid will be generated by JavaScript -->
+                    </div>
+                    <div class="inventory-info">
+                        <div id="selectedItemInfo" class="selected-item-info">
+                            <div class="item-name">No item selected</div>
+                            <div class="item-description">Select an item to see details</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="questLog">
+                    <h3>Quest</h3>
+                    <p id="currentQuest">Explore the mysterious island and find the ancient treasure!</p>
+                </div>
+            </div>
+            
+            <div id="messageBox" class="hidden">
+                <div id="messageContent"></div>
+                <button id="messageOk">OK</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 
