@@ -14,6 +14,15 @@ export class MenuSystem {
             cameraSpeed: 1.0,
             zoomSpeed: 1.0,
             smoothCamera: true,
+            // Head bob settings
+            headBobEnabled: true,
+            headBobIntensity: 0.5,
+            // Movement tilt settings
+            movementTiltEnabled: true,
+            movementTiltIntensity: 0.5,
+            // Depth of field settings
+            depthOfFieldEnabled: false,
+            depthOfFieldIntensity: 1.0,
             keybinds: {
                 forward: 'KeyW',
                 backward: 'KeyS',
@@ -21,6 +30,7 @@ export class MenuSystem {
                 right: 'KeyD',
                 interact: 'KeyE',
                 jump: 'Space',
+                run: 'ShiftLeft',
                 inventory: 'KeyI'
             }
         };
@@ -246,9 +256,11 @@ export class MenuSystem {
         this.settings.cameraSpeed = parseFloat(value);
         document.getElementById('cameraSpeedValue').textContent = value;
         
-        // Apply to game if running
-        if (this.gameInstance && this.gameInstance.camera) {
-            this.gameInstance.camera.speed = value * 5; // Base speed multiplier
+        // Apply to game via camera settings system
+        if (this.gameInstance && this.gameInstance.updateCameraSettings) {
+            this.gameInstance.updateCameraSettings({
+                speed: parseFloat(value)
+            });
         }
     }
     
@@ -268,6 +280,78 @@ export class MenuSystem {
         // Apply to game if running
         if (this.gameInstance && this.gameInstance.updateCameraSmoothing) {
             this.gameInstance.updateCameraSmoothing(checked);
+        }
+    }
+    
+    // Head Bob Settings
+    updateHeadBobEnabled(checked) {
+        this.settings.headBobEnabled = checked;
+        
+        // Apply to game if running
+        if (this.gameInstance && this.gameInstance.updateCameraSettings) {
+            this.gameInstance.updateCameraSettings({
+                headBobEnabled: checked
+            });
+        }
+    }
+    
+    updateHeadBobIntensity(value) {
+        this.settings.headBobIntensity = parseFloat(value);
+        document.getElementById('headBobIntensityValue').textContent = value;
+        
+        // Apply to game if running
+        if (this.gameInstance && this.gameInstance.updateCameraSettings) {
+            this.gameInstance.updateCameraSettings({
+                headBobIntensity: parseFloat(value)
+            });
+        }
+    }
+    
+    // Movement Tilt Settings
+    updateMovementTiltEnabled(checked) {
+        this.settings.movementTiltEnabled = checked;
+        
+        // Apply to game if running
+        if (this.gameInstance && this.gameInstance.updateCameraSettings) {
+            this.gameInstance.updateCameraSettings({
+                movementTiltEnabled: checked
+            });
+        }
+    }
+    
+    updateMovementTiltIntensity(value) {
+        this.settings.movementTiltIntensity = parseFloat(value);
+        document.getElementById('movementTiltIntensityValue').textContent = value;
+        
+        // Apply to game if running
+        if (this.gameInstance && this.gameInstance.updateCameraSettings) {
+            this.gameInstance.updateCameraSettings({
+                movementTiltIntensity: parseFloat(value) * 0.04 // Convert to radians scale
+            });
+        }
+    }
+    
+    // Depth of Field Settings
+    updateDepthOfFieldEnabled(checked) {
+        this.settings.depthOfFieldEnabled = checked;
+        
+        // Apply to game if running
+        if (this.gameInstance && this.gameInstance.updateCameraSettings) {
+            this.gameInstance.updateCameraSettings({
+                depthOfFieldEnabled: checked
+            });
+        }
+    }
+    
+    updateDepthOfFieldIntensity(value) {
+        this.settings.depthOfFieldIntensity = parseFloat(value);
+        document.getElementById('depthOfFieldIntensityValue').textContent = value;
+        
+        // Apply to game if running
+        if (this.gameInstance && this.gameInstance.updateCameraSettings) {
+            this.gameInstance.updateCameraSettings({
+                depthOfFieldIntensity: parseFloat(value)
+            });
         }
     }
     
@@ -366,6 +450,20 @@ export class MenuSystem {
         document.getElementById('cameraSpeedSlider').value = this.settings.cameraSpeed;
         document.getElementById('zoomSpeedSlider').value = this.settings.zoomSpeed;
         document.getElementById('smoothCamera').checked = this.settings.smoothCamera;
+        // New camera settings with error handling
+        const headBobEnabledEl = document.getElementById('headBobEnabled');
+        const headBobIntensitySliderEl = document.getElementById('headBobIntensitySlider');
+        const movementTiltEnabledEl = document.getElementById('movementTiltEnabled');
+        const movementTiltIntensitySliderEl = document.getElementById('movementTiltIntensitySlider');
+        const depthOfFieldEnabledEl = document.getElementById('depthOfFieldEnabled');
+        const depthOfFieldIntensitySliderEl = document.getElementById('depthOfFieldIntensitySlider');
+        
+        if (headBobEnabledEl) headBobEnabledEl.checked = this.settings.headBobEnabled;
+        if (headBobIntensitySliderEl) headBobIntensitySliderEl.value = this.settings.headBobIntensity;
+        if (movementTiltEnabledEl) movementTiltEnabledEl.checked = this.settings.movementTiltEnabled;
+        if (movementTiltIntensitySliderEl) movementTiltIntensitySliderEl.value = this.settings.movementTiltIntensity;
+        if (depthOfFieldEnabledEl) depthOfFieldEnabledEl.checked = this.settings.depthOfFieldEnabled;
+        if (depthOfFieldIntensitySliderEl) depthOfFieldIntensitySliderEl.value = this.settings.depthOfFieldIntensity;
         
         // Update display values
         this.updateFOV(this.settings.fov);
@@ -375,6 +473,9 @@ export class MenuSystem {
         this.updateSFXVolume(this.settings.sfxVolume);
         this.updateCameraSpeed(this.settings.cameraSpeed);
         this.updateZoomSpeed(this.settings.zoomSpeed);
+        this.updateHeadBobIntensity(this.settings.headBobIntensity);
+        this.updateMovementTiltIntensity(this.settings.movementTiltIntensity);
+        this.updateDepthOfFieldIntensity(this.settings.depthOfFieldIntensity);
         
         // Update keybind buttons with better error handling
         console.log('Updating keybind buttons with settings:', this.settings.keybinds);
@@ -392,18 +493,29 @@ export class MenuSystem {
     
     applySettings() {
         console.log('[DEBUG] MenuSystem.applySettings called. Testing with updateCameraSettings enabled.');
+        console.log('[DEBUG] Current menu settings:', this.settings);
+        
         if (this.gameInstance) {
             // Apply graphics settings
             this.applyGraphicsQuality(this.settings.graphics);
             
             // RE-ENABLING BLOCK 1
             if (this.gameInstance.updateCameraSettings) {
-                this.gameInstance.updateCameraSettings({
+                const cameraSettingsToApply = {
                     sensitivity: this.settings.sensitivity,
                     invertY: this.settings.invertMouseY,
                     smoothing: this.settings.smoothCamera,
-                    speed: this.settings.cameraSpeed / 100 // Convert percentage to decimal
-                });
+                    speed: this.settings.cameraSpeed, // Use direct value
+                    headBobEnabled: this.settings.headBobEnabled,
+                    headBobIntensity: this.settings.headBobIntensity,
+                    movementTiltEnabled: this.settings.movementTiltEnabled,
+                    movementTiltIntensity: this.settings.movementTiltIntensity * 0.04, // Convert to radians scale
+                    depthOfFieldEnabled: this.settings.depthOfFieldEnabled,
+                    depthOfFieldIntensity: this.settings.depthOfFieldIntensity
+                };
+                
+                console.log('[DEBUG] Sending camera settings to game:', cameraSettingsToApply);
+                this.gameInstance.updateCameraSettings(cameraSettingsToApply);
             }
             
             // KEEPING FOV COMMENTED OUT FOR NOW

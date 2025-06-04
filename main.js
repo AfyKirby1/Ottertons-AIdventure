@@ -29,6 +29,12 @@ window.startNewGame = () => {
         // Connect game to menu system for settings
         menuSystem.setGameInstance(game);
         window.game = game; // Make game globally accessible
+        
+        // Ensure settings are applied after game initialization
+        setTimeout(() => {
+            console.log('Re-applying menu settings to ensure camera settings are loaded...');
+            menuSystem.applySettings();
+        }, 2000); // Give game time to fully initialize
     }
 };
 
@@ -105,6 +111,39 @@ window.updateZoomSpeed = (value) => {
 window.updateSmoothCamera = (checked) => {
     const menuSystem = initMenuSystem();
     menuSystem.updateSmoothCamera(checked);
+};
+
+// Head Bob Settings
+window.updateHeadBobEnabled = (checked) => {
+    const menuSystem = initMenuSystem();
+    menuSystem.updateHeadBobEnabled(checked);
+};
+
+window.updateHeadBobIntensity = (value) => {
+    const menuSystem = initMenuSystem();
+    menuSystem.updateHeadBobIntensity(value);
+};
+
+// Movement Tilt Settings
+window.updateMovementTiltEnabled = (checked) => {
+    const menuSystem = initMenuSystem();
+    menuSystem.updateMovementTiltEnabled(checked);
+};
+
+window.updateMovementTiltIntensity = (value) => {
+    const menuSystem = initMenuSystem();
+    menuSystem.updateMovementTiltIntensity(value);
+};
+
+// Depth of Field Settings
+window.updateDepthOfFieldEnabled = (checked) => {
+    const menuSystem = initMenuSystem();
+    menuSystem.updateDepthOfFieldEnabled(checked);
+};
+
+window.updateDepthOfFieldIntensity = (value) => {
+    const menuSystem = initMenuSystem();
+    menuSystem.updateDepthOfFieldIntensity(value);
 };
 
 // Pause Menu Functions

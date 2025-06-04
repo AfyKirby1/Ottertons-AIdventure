@@ -47,7 +47,9 @@ export class AdventureGame {
             backward: false,
             left: false,
             right: false,
-            jump: false
+            jump: false,
+            run: false,
+            crouch: false
         };
         
         // Camera settings
@@ -55,7 +57,31 @@ export class AdventureGame {
             sensitivity: 100,
             invertY: false,
             smoothing: true,
-            speed: 0.5
+            speed: 0.5,
+            // Head bob settings
+            headBobEnabled: true,
+            headBobIntensity: 0.5,
+            walkingBobSpeed: 8.0,
+            runningBobSpeed: 12.0,
+            crouchBobMultiplier: 0.3,
+            // Movement tilt settings
+            movementTiltEnabled: true,
+            movementTiltIntensity: 0.02,
+            // Depth of field settings
+            depthOfFieldEnabled: false,
+            depthOfFieldIntensity: 1.0,
+            depthOfFieldDistance: 10.0
+        };
+        
+        // Camera animation state
+        this.cameraAnimation = {
+            bobTimer: 0,
+            basePosition: new Vector3(0, 0, 0),
+            currentTilt: 0,
+            targetTilt: 0,
+            isMoving: false,
+            isRunning: false,
+            isCrouching: false
         };
         
         // Default key bindings
@@ -66,6 +92,7 @@ export class AdventureGame {
             right: 'KeyD',
             jump: 'Space',
             interact: 'KeyE',
+            run: 'ShiftLeft',
             inventory: 'KeyI'
         };
         
@@ -136,7 +163,9 @@ export class AdventureGame {
             backward: false,
             left: false,
             right: false,
-            jump: false
+            jump: false,
+            run: false,
+            crouch: false
         };
         
         // Camera settings
@@ -144,7 +173,31 @@ export class AdventureGame {
             sensitivity: 100,
             invertY: false,
             smoothing: true,
-            speed: 0.5
+            speed: 0.5,
+            // Head bob settings
+            headBobEnabled: true,
+            headBobIntensity: 0.5,
+            walkingBobSpeed: 8.0,
+            runningBobSpeed: 12.0,
+            crouchBobMultiplier: 0.3,
+            // Movement tilt settings
+            movementTiltEnabled: true,
+            movementTiltIntensity: 0.02,
+            // Depth of field settings
+            depthOfFieldEnabled: false,
+            depthOfFieldIntensity: 1.0,
+            depthOfFieldDistance: 10.0
+        };
+        
+        // Camera animation state
+        this.cameraAnimation = {
+            bobTimer: 0,
+            basePosition: new Vector3(0, 0, 0),
+            currentTilt: 0,
+            targetTilt: 0,
+            isMoving: false,
+            isRunning: false,
+            isCrouching: false
         };
         
         // Default key bindings
@@ -155,6 +208,7 @@ export class AdventureGame {
             right: 'KeyD',
             jump: 'Space',
             interact: 'KeyE',
+            run: 'ShiftLeft',
             inventory: 'KeyI'
         };
         
@@ -435,30 +489,54 @@ export class AdventureGame {
     }
     
     setupPointerLock() {
+        // Initialize pointer lock state tracking
+        this.pointerLockCooldown = false;
+        this.lastPointerLockChange = 0;
+        
         // Handle pointer lock events
         document.addEventListener('pointerlockchange', () => {
+            const now = Date.now();
+            
+            // Prevent rapid state changes (cooldown)
+            if (now - this.lastPointerLockChange < 100) {
+                console.log('Pointer lock change too rapid, ignoring');
+                return;
+            }
+            this.lastPointerLockChange = now;
+            
             if (document.pointerLockElement === this.canvas) {
                 console.log('Pointer locked - mouse look enabled');
                 this.attachCameraControls();
                 this.wasPointerLocked = true; // Track that we had pointer lock
+                this.pointerLockCooldown = false;
             } else {
                 console.log('Pointer unlocked - mouse look disabled');
                 this.detachCameraControls();
                 
                 // If we had pointer lock and game is active, treat as escape press
                 // (Browser automatically releases pointer lock on Escape)
-                if (this.wasPointerLocked && this.gameStarted && !this.isPausingGame) {
+                if (this.wasPointerLocked && this.gameStarted && !this.isPausingGame && !this.pointerLockCooldown) {
                     console.log('Pointer lock lost - treating as Escape press');
-                    if (this.inventoryOpen) {
-                        this.toggleInventory();
-                        console.log('Closing inventory with Escape');
-                    } else if (!this.gamePaused) {
-                        this.pauseGame();
-                        console.log('Pausing game with Escape');
-                    } else {
-                        this.resumeGame();
-                        console.log('Resuming game with Escape');
-                    }
+                    this.pointerLockCooldown = true; // Set cooldown to prevent double triggers
+                    
+                    // Add delay to prevent rapid toggling
+                    setTimeout(() => {
+                        if (this.inventoryOpen) {
+                            this.toggleInventory();
+                            console.log('Closing inventory with Escape');
+                        } else if (!this.gamePaused) {
+                            this.pauseGame();
+                            console.log('Pausing game with Escape');
+                        } else {
+                            this.resumeGame();
+                            console.log('Resuming game with Escape');
+                        }
+                        
+                        // Reset cooldown after action
+                        setTimeout(() => {
+                            this.pointerLockCooldown = false;
+                        }, 300);
+                    }, 50); // Small delay to prevent rapid firing
                 }
                 this.wasPointerLocked = false;
             }
@@ -467,6 +545,11 @@ export class AdventureGame {
         // Handle pointer lock errors
         document.addEventListener('pointerlockerror', () => {
             console.warn('Pointer lock failed');
+            this.pointerLockCooldown = true;
+            // Reset cooldown after error
+            setTimeout(() => {
+                this.pointerLockCooldown = false;
+            }, 1000);
         });
     }
     
@@ -500,7 +583,7 @@ export class AdventureGame {
         this.mouseLookHandler = (event) => {
             if (!this.gameStarted || !this.camera) return;
             
-            const sensitivity = (this.cameraSettings.sensitivity || 100) / 10000;
+            const sensitivity = (this.cameraSettings.sensitivity || 100) / 10000 * (this.cameraSettings.speed || 1.0);
             
             // Apply mouse movement to camera rotation
             this.camera.rotation.y += event.movementX * sensitivity;
@@ -579,6 +662,12 @@ export class AdventureGame {
             } else if (event.code === this.keybinds.inventory) {
                 this.toggleInventory();
                 console.log('Toggling inventory');
+            } else if (event.code === this.keybinds.run) {
+                this.keys.run = true;
+                console.log('Running');
+            } else if (event.code === 'ControlLeft' || event.code === 'ControlRight') {
+                this.keys.crouch = true;
+                console.log('Crouching');
             }
         });
         
@@ -596,6 +685,10 @@ export class AdventureGame {
                 this.keys.right = false;
             } else if (event.code === this.keybinds.jump) {
                 this.keys.jump = false;
+            } else if (event.code === this.keybinds.run) {
+                this.keys.run = false;
+            } else if (event.code === 'ControlLeft' || event.code === 'ControlRight') {
+                this.keys.crouch = false;
             }
         });
         
@@ -725,10 +818,101 @@ export class AdventureGame {
         }
     }
     
+    updateCameraEffects() {
+        if (!this.camera || !this.cameraSettings) return;
+        
+        const deltaTime = this.engine.getDeltaTime() / 1000;
+        
+        // Update movement state
+        this.cameraAnimation.isMoving = this.keys.forward || this.keys.backward || this.keys.left || this.keys.right;
+        this.cameraAnimation.isRunning = this.cameraAnimation.isMoving && this.keys.run;
+        this.cameraAnimation.isCrouching = this.keys.crouch;
+        
+        // Debug movement state every few seconds
+        if (Math.floor(Date.now() / 1000) % 3 === 0 && this.cameraAnimation.isMoving) {
+            console.log(`Movement state - Moving: ${this.cameraAnimation.isMoving}, Running: ${this.cameraAnimation.isRunning}, HeadBob: ${this.cameraSettings.headBobEnabled}`);
+        }
+        
+        // Head bob calculation
+        if (this.cameraSettings.headBobEnabled && this.cameraAnimation.isMoving) {
+            let bobSpeed = this.cameraSettings.walkingBobSpeed;
+            let bobIntensity = this.cameraSettings.headBobIntensity;
+            
+            // Debug logging for head bob
+            if (Math.floor(this.cameraAnimation.bobTimer * 10) % 50 === 0) {
+                console.log(`Head bob active - Speed: ${bobSpeed}, Intensity: ${bobIntensity}, Timer: ${this.cameraAnimation.bobTimer.toFixed(2)}`);
+            }
+            
+            // Adjust for running
+            if (this.cameraAnimation.isRunning) {
+                bobSpeed = this.cameraSettings.runningBobSpeed;
+                bobIntensity *= 1.5; // Running has more intense bob
+            }
+            
+            // Adjust for crouching
+            if (this.cameraAnimation.isCrouching) {
+                bobIntensity *= this.cameraSettings.crouchBobMultiplier;
+                bobSpeed *= 0.7; // Slower when crouching
+            }
+            
+            // Update bob timer
+            this.cameraAnimation.bobTimer += deltaTime * bobSpeed;
+            
+            // Calculate bob offset with more noticeable effect
+            const bobOffset = Math.sin(this.cameraAnimation.bobTimer) * bobIntensity * 0.3; // Increased multiplier
+            const bobSideOffset = Math.sin(this.cameraAnimation.bobTimer * 0.5) * bobIntensity * 0.15; // Increased multiplier
+            
+            // Apply bob to camera position
+            this.camera.position.y = this.player.position.y + 1.6 + bobOffset + (this.cameraAnimation.isCrouching ? -0.5 : 0);
+            this.camera.position.x = this.player.position.x + bobSideOffset;
+        } else {
+            // Reset bob timer when not moving
+            this.cameraAnimation.bobTimer = 0;
+            
+            // Smooth return to normal position
+            this.camera.position.y = this.player.position.y + 1.6 + (this.cameraAnimation.isCrouching ? -0.5 : 0);
+            this.camera.position.x = this.player.position.x;
+        }
+        
+        // Movement tilt calculation
+        if (this.cameraSettings.movementTiltEnabled) {
+            let targetTilt = 0;
+            
+            if (this.keys.left && this.cameraAnimation.isMoving) {
+                targetTilt = this.cameraSettings.movementTiltIntensity;
+            } else if (this.keys.right && this.cameraAnimation.isMoving) {
+                targetTilt = -this.cameraSettings.movementTiltIntensity;
+            }
+            
+            // Smooth tilt transition
+            this.cameraAnimation.currentTilt = this.cameraAnimation.currentTilt + 
+                (targetTilt - this.cameraAnimation.currentTilt) * deltaTime * 5;
+            
+            // Apply tilt to camera
+            this.camera.rotation.z = this.cameraAnimation.currentTilt;
+        } else {
+            this.camera.rotation.z = 0;
+        }
+        
+        // Ensure camera Z position matches player
+        this.camera.position.z = this.player.position.z;
+    }
+    
     update() {
         if (!this.player || !this.gameStarted || this.gamePaused) return;
 
-        const moveSpeed = 8; // Increased for better responsiveness
+        let moveSpeed = 8; // Base movement speed
+        
+        // Increase speed if running
+        if (this.keys.run) {
+            moveSpeed *= 2.5; // 2.5x faster when running
+        }
+        
+        // Decrease speed if crouching
+        if (this.keys.crouch) {
+            moveSpeed *= 0.5; // 50% slower when crouching
+        }
+        
         const movement = new Vector3(0, 0, 0);
         
         // Calculate movement based on camera direction (only Y rotation, ignore X rotation)
@@ -783,15 +967,10 @@ export class AdventureGame {
             }
         }
         
-        // Update camera position to follow player (since we're not using setParent)
-        if (this.camera && this.player) {
-            this.camera.position.x = this.player.position.x;
-            this.camera.position.y = this.player.position.y + 1.6; // Eye height
-            this.camera.position.z = this.player.position.z;
-        }
+        // Update camera effects (head bob, tilt, positioning)
+        this.updateCameraEffects();
         
-        // Keep camera upright
-        this.camera.rotation.z = 0;
+        // Keep camera vertical rotation clamped
         this.camera.rotation.x = Math.max(-Math.PI/3, Math.min(Math.PI/3, this.camera.rotation.x));
     }
     
@@ -1141,10 +1320,20 @@ export class AdventureGame {
             mainMenu.classList.remove('pause-mode'); // Remove transparent background
         }
         
-        // Re-request pointer lock after short delay
+        // Re-request pointer lock after longer delay to avoid security errors
+        // Only request if user hasn't already clicked and no cooldown is active
         setTimeout(() => {
-            this.canvas.requestPointerLock();
-        }, 100);
+            if (!document.pointerLockElement && this.gameStarted && !this.gamePaused && !this.pointerLockCooldown) {
+                this.canvas.requestPointerLock().catch((error) => {
+                    console.log('Pointer lock request failed:', error.message);
+                    // Set cooldown to prevent rapid retries
+                    this.pointerLockCooldown = true;
+                    setTimeout(() => {
+                        this.pointerLockCooldown = false;
+                    }, 2000); // 2 second cooldown on failure
+                });
+            }
+        }, 800); // Further increased delay
     }
     
     updateKeybind(action, keyCode) {
@@ -1154,6 +1343,8 @@ export class AdventureGame {
     
     updateCameraSettings(settings) {
         // Update camera settings and apply them immediately
+        console.log('Updating camera settings with:', settings);
+        console.log('Current camera settings before update:', this.cameraSettings);
         this.cameraSettings = { ...this.cameraSettings, ...settings };
         this.applyCameraSettings();
         console.log('Camera settings updated:', this.cameraSettings);

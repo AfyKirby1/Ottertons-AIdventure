@@ -149,6 +149,10 @@
                                     <button class="keybind-button" onclick="recordKeybind('right', this)">D</button>
                                 </div>
                                 <div class="keybind-item">
+                                    <span class="keybind-label">Run</span>
+                                    <button class="keybind-button" onclick="recordKeybind('run', this)">L-Shift</button>
+                                </div>
+                                <div class="keybind-item">
                                     <span class="keybind-label">Interact</span>
                                     <button class="keybind-button" onclick="recordKeybind('interact', this)">E</button>
                                 </div>
@@ -177,7 +181,7 @@
                                     <label class="setting-label">Camera Speed</label>
                                     <span class="setting-value" id="cameraSpeedValue">1.0</span>
                                 </div>
-                                <input type="range" class="setting-slider" id="cameraSpeedSlider" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateCameraSpeed(this.value)">
+                                <input type="range" class="setting-slider" id="cameraSpeedSlider" min="0.1" max="10.0" step="0.1" value="1.0" oninput="updateCameraSpeed(this.value)">
                             </div>
                             
                             <div class="setting-group">
@@ -193,6 +197,54 @@
                                     <label class="setting-label">Smooth Camera</label>
                                     <input type="checkbox" class="setting-checkbox" id="smoothCamera" checked onchange="updateSmoothCamera(this.checked)">
                                 </div>
+                            </div>
+                            
+                            <!-- Head Bob Settings -->
+                            <div class="setting-group">
+                                <div class="setting-row">
+                                    <label class="setting-label">Head Bob</label>
+                                    <input type="checkbox" class="setting-checkbox" id="headBobEnabled" checked onchange="updateHeadBobEnabled(this.checked)">
+                                </div>
+                            </div>
+                            
+                            <div class="setting-group">
+                                <div class="setting-row">
+                                    <label class="setting-label">Head Bob Intensity</label>
+                                    <span class="setting-value" id="headBobIntensityValue">0.5</span>
+                                </div>
+                                <input type="range" class="setting-slider" id="headBobIntensitySlider" min="0.1" max="2.0" step="0.1" value="0.5" oninput="updateHeadBobIntensity(this.value)">
+                            </div>
+                            
+                            <!-- Movement Tilt Settings -->
+                            <div class="setting-group">
+                                <div class="setting-row">
+                                    <label class="setting-label">Movement Tilt</label>
+                                    <input type="checkbox" class="setting-checkbox" id="movementTiltEnabled" checked onchange="updateMovementTiltEnabled(this.checked)">
+                                </div>
+                            </div>
+                            
+                            <div class="setting-group">
+                                <div class="setting-row">
+                                    <label class="setting-label">Movement Tilt Intensity</label>
+                                    <span class="setting-value" id="movementTiltIntensityValue">0.5</span>
+                                </div>
+                                <input type="range" class="setting-slider" id="movementTiltIntensitySlider" min="0.1" max="2.0" step="0.1" value="0.5" oninput="updateMovementTiltIntensity(this.value)">
+                            </div>
+                            
+                            <!-- Depth of Field Settings -->
+                            <div class="setting-group">
+                                <div class="setting-row">
+                                    <label class="setting-label">Depth of Field</label>
+                                    <input type="checkbox" class="setting-checkbox" id="depthOfFieldEnabled" onchange="updateDepthOfFieldEnabled(this.checked)">
+                                </div>
+                            </div>
+                            
+                            <div class="setting-group">
+                                <div class="setting-row">
+                                    <label class="setting-label">Depth of Field Intensity</label>
+                                    <span class="setting-value" id="depthOfFieldIntensityValue">1.0</span>
+                                </div>
+                                <input type="range" class="setting-slider" id="depthOfFieldIntensitySlider" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateDepthOfFieldIntensity(this.value)">
                             </div>
                         </div>
                     </div>
