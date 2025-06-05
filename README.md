@@ -3,11 +3,12 @@
 A first-person 3D web-based exploration game built with Babylon.js 8.0. Explore a mysterious island, collect treasures, interact with magical crystals, and experience immersive camera effects!
 
 ## 🌟 **Recent Updates**
+- ✅ **Movement System Overhaul**: Refined movement speed and alignment for better control
 - ✅ **Advanced Camera System**: Head bob, movement tilt, and accessibility options
 - ✅ **Enhanced Settings**: Comprehensive camera controls and graphics options
 - ✅ **Improved Physics**: Stable collision detection and movement
 - ✅ **Accessibility Features**: Motion sensitivity options and customizable controls
-- ✅ **Comprehensive Documentation**: Full design and technical documentation
+- ✅ **Repository Optimization**: Added comprehensive .gitignore for lightweight commits
 
 ---
 
@@ -25,7 +26,7 @@ A first-person 3D web-based exploration game built with Babylon.js 8.0. Explore 
 - **Movement Tilt**: Subtle camera roll during strafing for enhanced immersion
 - **Accessibility Options**: Toggleable effects for motion sensitivity
 - **Customizable Controls**: Adjustable sensitivity, smoothing, and invert options
-- **Running & Crouching**: Enhanced movement speeds with visual feedback
+- **Refined Movement**: Balanced walking and running speeds for optimal control
 
 ### **Technical Features**
 - **Modern ES6 Architecture** with modular design patterns
@@ -74,7 +75,7 @@ python -m http.server 8000
 ### **Basic Controls**
 - **W, A, S, D** - Move around (forward, left, backward, right)
 - **Mouse** - Look around (click to lock mouse pointer)
-- **Shift** - Hold to run (faster movement with enhanced head bob)
+- **Shift** - Hold to run (same speed as walking for better control)
 - **Ctrl** - Hold to crouch (slower, stealthier movement)
 - **E** - Interact with objects when prompted
 - **I** - Toggle inventory window
@@ -167,7 +168,8 @@ python -m http.server 8000
 - [x] Comprehensive settings management
 - [x] Accessibility and motion sensitivity options
 - [x] Performance optimization and quality settings
-- [x] Complete documentation suite
+- [x] Movement system refinement and speed balancing
+- [x] Repository optimization with proper .gitignore
 
 ### **Next Phase: Content Expansion** (Q1 2025)
 - [ ] Audio system with music and sound effects

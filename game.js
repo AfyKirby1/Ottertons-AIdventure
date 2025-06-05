@@ -714,11 +714,11 @@ export class AdventureGame {
     update() {
         if (!this.player || !this.gameStarted || this.gamePaused) return;
 
-        let moveSpeed = 40; // Base movement speed (5x faster than original 8)
+        let moveSpeed = 20; // Base movement speed (reduced by 50% from 40 to 20)
         
         // Increase speed if running
         if (this.keys.run) {
-            moveSpeed *= 2.0; // 2x faster when running (was 2.5x, now 2x for better control)
+            moveSpeed *= 1.5; // 1x speed when running (reduced from 2x for better control)
         }
         
         // Decrease speed if crouching
@@ -733,12 +733,14 @@ export class AdventureGame {
         const cameraYRotation = this.camera.rotation.y;
         
         // Calculate forward and right vectors using camera's Y rotation
+        // Fixed alignment: forward should be where camera is looking
         const forward = new Vector3(
             Math.sin(cameraYRotation),
             0,
             Math.cos(cameraYRotation)
         );
         
+        // Right vector is perpendicular to forward (90 degrees clockwise)
         const right = new Vector3(
             Math.cos(cameraYRotation),
             0,
