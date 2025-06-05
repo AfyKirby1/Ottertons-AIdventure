@@ -1,4 +1,5 @@
 import { WorldManager } from './systems/WorldManager.js';
+import { CameraController } from './components/CameraController.js';
 
 // Using global BABYLON object from CDN
 const { 
@@ -38,7 +39,6 @@ export class AdventureGame {
         this.gameStarted = false;
         this.inventoryOpen = false;
         this.gamePaused = false;
-        this.isControlsAttached = false; // Track camera control state
         this.isJumping = false;
         this.isPausingGame = false; // Track when we're intentionally pausing
         this.escapeKeyPressed = false; // Track escape key press to handle timing
@@ -52,38 +52,6 @@ export class AdventureGame {
             jump: false,
             run: false,
             crouch: false
-        };
-        
-        // Camera settings
-        this.cameraSettings = {
-            sensitivity: 100,
-            invertY: false,
-            smoothing: true,
-            speed: 0.5,
-            // Head bob settings
-            headBobEnabled: true,
-            headBobIntensity: 0.5,
-            walkingBobSpeed: 8.0,
-            runningBobSpeed: 12.0,
-            crouchBobMultiplier: 0.3,
-            // Movement tilt settings
-            movementTiltEnabled: true,
-            movementTiltIntensity: 0.02,
-            // Depth of field settings
-            depthOfFieldEnabled: false,
-            depthOfFieldIntensity: 1.0,
-            depthOfFieldDistance: 10.0
-        };
-        
-        // Camera animation state
-        this.cameraAnimation = {
-            bobTimer: 0,
-            basePosition: new Vector3(0, 0, 0),
-            currentTilt: 0,
-            targetTilt: 0,
-            isMoving: false,
-            isRunning: false,
-            isCrouching: false
         };
         
         // Default key bindings
@@ -120,21 +88,24 @@ export class AdventureGame {
         // Physics world reference
         this.physicsPlugin = null;
         
+        // Camera controller
+        this.cameraController = null;
+        
         this.init();
     }
     
     initializePhysics() {
         try {
             console.log('🔧 Initializing physics...');
-            // Enable physics with Cannon.js engine
-            this.scene.enablePhysics(new Vector3(0, -9.81, 0), new BABYLON.CannonJSPlugin(true, 10, CANNON));
+            // Enable physics with Cannon.js engine - increased gravity for snappier movement
+            this.scene.enablePhysics(new Vector3(0, -15, 0), new BABYLON.CannonJSPlugin(true, 10, CANNON));
             console.log('✅ Physics enabled successfully with Cannon.js!');
             return true;
         } catch (error) {
             console.warn('❌ Physics initialization failed:', error);
             // Fallback to basic physics if Cannon fails
             try {
-                this.scene.enablePhysics(new Vector3(0, -9.81, 0));
+                this.scene.enablePhysics(new Vector3(0, -15, 0));
                 console.log('✅ Physics enabled with fallback engine!');
                 return true;
             } catch (fallbackError) {
@@ -159,7 +130,6 @@ export class AdventureGame {
         // Game state
         this.gameStarted = false;
         this.inventoryOpen = false;
-        this.isControlsAttached = false; // Track camera control state
         this.isJumping = false;
         
         // Movement state
@@ -171,38 +141,6 @@ export class AdventureGame {
             jump: false,
             run: false,
             crouch: false
-        };
-        
-        // Camera settings
-        this.cameraSettings = {
-            sensitivity: 100,
-            invertY: false,
-            smoothing: true,
-            speed: 0.5,
-            // Head bob settings
-            headBobEnabled: true,
-            headBobIntensity: 0.5,
-            walkingBobSpeed: 8.0,
-            runningBobSpeed: 12.0,
-            crouchBobMultiplier: 0.3,
-            // Movement tilt settings
-            movementTiltEnabled: true,
-            movementTiltIntensity: 0.02,
-            // Depth of field settings
-            depthOfFieldEnabled: false,
-            depthOfFieldIntensity: 1.0,
-            depthOfFieldDistance: 10.0
-        };
-        
-        // Camera animation state
-        this.cameraAnimation = {
-            bobTimer: 0,
-            basePosition: new Vector3(0, 0, 0),
-            currentTilt: 0,
-            targetTilt: 0,
-            isMoving: false,
-            isRunning: false,
-            isCrouching: false
         };
         
         // Default key bindings
@@ -236,6 +174,9 @@ export class AdventureGame {
         // Physics world reference
         this.physicsPlugin = null;
         
+        // Camera controller
+        this.cameraController = null;
+        
         try {
             const babylonLoaded = await new Promise((resolve, reject) => {
                 if (BABYLON && Engine && Scene && Vector3 && Color3 && HemisphericLight && DirectionalLight && ShadowGenerator && MeshBuilder && StandardMaterial && PhysicsImpostor && FreeCamera) {
@@ -257,22 +198,21 @@ export class AdventureGame {
             this.initializePhysics();
             
             this.createLighting();
-            this.setupControls(); // this.camera is created here
+            this.createPlayer(); // Create player first
             
-            console.log('[DEBUG] init: After setupControls - Camera created successfully');
-            // console.log('[DEBUG] init: After setupControls - typeof this.camera.setParent:', this.camera ? typeof this.camera.setParent : 'N/A');
+            // Initialize camera controller after player is created
+            this.cameraController = new CameraController(this.scene, this.canvas, this.player);
+            this.camera = this.cameraController.camera; // Keep reference for compatibility
+            
+            console.log('[DEBUG] init: After camera controller - Camera created successfully');
 
             // Initialize world manager and create world
             this.worldManager = new WorldManager(this.scene, this.interactables);
             await this.worldManager.generateWorld();
             
-            this.createPlayer(); // this.player is created
-            
-            console.log('[DEBUG] init: After createPlayer - Player created successfully');
-            // console.log('[DEBUG] init: After createPlayer - typeof this.camera.setParent:', this.camera ? typeof this.camera.setParent : 'N/A');
-            // console.log('[DEBUG] init: After createPlayer - this.camera === this.player:', this.camera === this.player);
-
             this.setupUI();
+            this.setupKeyboardControls(); // Set up keyboard controls
+            this.setupPointerLock(); // Set up pointer lock
             
             this.engine.runRenderLoop(() => {
                 if (this.gameStarted && !this.gamePaused) {
@@ -352,30 +292,7 @@ export class AdventureGame {
         
     }
     
-    setupControls() {
-        // Create camera with proper first-person setup
-        this.camera = new FreeCamera('camera', new Vector3(0, 5, -10), this.scene);
 
-        this.camera.setTarget(new Vector3(0, 2, 0));
-        
-        // Configure camera for first-person controls
-        this.camera.minZ = 0.1;
-        this.camera.speed = 0.5;
-        this.camera.angularSensibility = 2000;
-        this.camera.inertia = 0.9;
-        
-        // Set up canvas for pointer controls
-        this.canvas.tabIndex = 1;
-        
-        // Set camera as the active camera
-        this.scene.activeCamera = this.camera;
-        
-        // Set up pointer lock for mouse look
-        this.setupPointerLock();
-        
-        // Keyboard input using standard event listeners
-        this.setupKeyboardControls();
-    }
     
     setupPointerLock() {
         // Initialize pointer lock state tracking
@@ -393,11 +310,11 @@ export class AdventureGame {
             this.lastPointerLockChange = now;
             
             if (document.pointerLockElement === this.canvas) {
-                this.attachCameraControls();
+                this.cameraController.attachControls();
                 this.wasPointerLocked = true; // Track that we had pointer lock
                 this.pointerLockCooldown = false;
             } else {
-                this.detachCameraControls();
+                this.cameraController.detachControls();
                 
                 // If we had pointer lock and game is active, treat as escape press
                 // (Browser automatically releases pointer lock on Escape)
@@ -434,52 +351,7 @@ export class AdventureGame {
         });
     }
     
-    attachCameraControls() {
-        if (!this.isControlsAttached && this.camera) {
-            try {
-                // Since attachControls doesn't work, implement manual mouse look
-                this.setupManualMouseLook();
-                this.isControlsAttached = true;
-            } catch (error) {
-            }
-        }
-    }
-    
-    detachCameraControls() {
-        if (this.isControlsAttached && this.camera) {
-            try {
-                this.removeManualMouseLook();
-                this.isControlsAttached = false;
-            } catch (error) {
-            }
-        }
-    }
-    
-    setupManualMouseLook() {
-        // Create manual mouse look event handlers
-        this.mouseLookHandler = (event) => {
-            if (!this.gameStarted || !this.camera) return;
-            
-            const sensitivity = (this.cameraSettings.sensitivity || 100) / 10000 * (this.cameraSettings.speed || 1.0);
-            
-            // Apply mouse movement to camera rotation
-            this.camera.rotation.y += event.movementX * sensitivity;
-            this.camera.rotation.x += (this.cameraSettings.invertY ? event.movementY : -event.movementY) * sensitivity;
-            
-            // Clamp vertical rotation to prevent over-rotation
-            this.camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, this.camera.rotation.x));
-        };
-        
-        // Add the event listener
-        this.canvas.addEventListener('mousemove', this.mouseLookHandler);
-    }
-    
-    removeManualMouseLook() {
-        if (this.mouseLookHandler) {
-            this.canvas.removeEventListener('mousemove', this.mouseLookHandler);
-            this.mouseLookHandler = null;
-        }
-    }
+
     
     setupKeyboardControls() {
         // Use standard DOM event listeners for keyboard input
@@ -575,25 +447,10 @@ export class AdventureGame {
         document.getElementById('gameTitle').classList.add('hidden');
         document.getElementById('gameHUD').classList.remove('hidden');
 
-        // Position camera for first-person view
-        if (this.camera && this.player) {
-            // Position camera relative to player position (first-person view)
-            this.camera.position = new Vector3(
-                this.player.position.x, 
-                this.player.position.y + 1.6, // Eye level above player
-                this.player.position.z
-            );
-            
-            // Set initial camera target (look forward from player position)
-            const lookTarget = new Vector3(
-                this.player.position.x,
-                this.player.position.y + 1.6,
-                this.player.position.z + 5 // Look 5 units forward
-            );
-            this.camera.setTarget(lookTarget);
-
-            // Attach camera controls to canvas
-            this.attachCameraControls();
+        // Position camera for first-person view using camera controller
+        if (this.cameraController && this.player) {
+            // Camera controller handles positioning automatically
+            this.cameraController.attachControls();
         }
 
         // Lock pointer to canvas for mouse look
@@ -601,115 +458,7 @@ export class AdventureGame {
         this.canvas.requestPointerLock();
     }
     
-    applyCameraSettings() {
-        if (this.camera) {
-            // Apply angular sensitivity
-            this.camera.angularSensibility = 2000 / this.cameraSettings.sensitivity;
 
-            // Apply camera movement speed (for manual movement, not physics)
-            this.camera.speed = this.cameraSettings.speed;
-
-            // Disable camera inertia to prevent "rails" feeling
-            this.camera.inertia = 0;
-            
-            console.log('Camera settings applied successfully:', {
-                sensitivity: this.cameraSettings.sensitivity,
-                speed: this.cameraSettings.speed,
-                smoothing: this.cameraSettings.smoothing
-            });
-        } else {
-            console.log('[DEBUG] applyCameraSettings: No camera to apply settings to.');
-        }
-    }
-    
-    updateCameraEffects() {
-        if (!this.camera || !this.cameraSettings) return;
-        
-        const deltaTime = this.engine.getDeltaTime() / 1000;
-        
-        // Update movement state
-        this.cameraAnimation.isMoving = this.keys.forward || this.keys.backward || this.keys.left || this.keys.right;
-        this.cameraAnimation.isRunning = this.cameraAnimation.isMoving && this.keys.run;
-        this.cameraAnimation.isCrouching = this.keys.crouch;
-        
-        // Debug movement state (reduced logging)
-        // if (Math.floor(Date.now() / 1000) % 3 === 0 && this.cameraAnimation.isMoving) {
-        //     console.log(`Movement state - Moving: ${this.cameraAnimation.isMoving}, Running: ${this.cameraAnimation.isRunning}, HeadBob: ${this.cameraSettings.headBobEnabled}`);
-        // }
-        
-        // Head bob calculation
-        if (this.cameraSettings.headBobEnabled && this.cameraAnimation.isMoving) {
-            let bobSpeed = this.cameraSettings.walkingBobSpeed;
-            let bobIntensity = this.cameraSettings.headBobIntensity;
-            
-            // Debug logging for head bob (reduced)
-            // if (Math.floor(this.cameraAnimation.bobTimer * 10) % 50 === 0) {
-            //     console.log(`Head bob active - Speed: ${bobSpeed}, Intensity: ${bobIntensity}, Timer: ${this.cameraAnimation.bobTimer.toFixed(2)}`);
-            // }
-            
-            // Adjust for running
-            if (this.cameraAnimation.isRunning) {
-                bobSpeed = this.cameraSettings.runningBobSpeed;
-                bobIntensity *= 1.5; // Running has more intense bob
-            }
-            
-            // Adjust for crouching
-            if (this.cameraAnimation.isCrouching) {
-                bobIntensity *= this.cameraSettings.crouchBobMultiplier;
-                bobSpeed *= 0.7; // Slower when crouching
-            }
-            
-            // Update bob timer
-            this.cameraAnimation.bobTimer += deltaTime * bobSpeed;
-            
-            // Calculate bob offset with more noticeable effect
-            const bobOffset = Math.sin(this.cameraAnimation.bobTimer) * bobIntensity * 0.3; // Increased multiplier
-            const bobSideOffset = Math.sin(this.cameraAnimation.bobTimer * 0.5) * bobIntensity * 0.15; // Increased multiplier
-            
-            // Apply bob to camera position with smooth following
-            const targetY = this.player.position.y + 1.6 + bobOffset + (this.cameraAnimation.isCrouching ? -0.5 : 0);
-            const targetX = this.player.position.x + bobSideOffset;
-            
-            // Smooth camera following instead of rigid locking
-            this.camera.position.y = this.camera.position.y + (targetY - this.camera.position.y) * deltaTime * 10;
-            this.camera.position.x = this.camera.position.x + (targetX - this.camera.position.x) * deltaTime * 10;
-        } else {
-            // Reset bob timer when not moving
-            this.cameraAnimation.bobTimer = 0;
-            
-            // Smooth return to normal position
-            const targetY = this.player.position.y + 1.6 + (this.cameraAnimation.isCrouching ? -0.5 : 0);
-            const targetX = this.player.position.x;
-            
-            // Smooth camera following
-            this.camera.position.y = this.camera.position.y + (targetY - this.camera.position.y) * deltaTime * 8;
-            this.camera.position.x = this.camera.position.x + (targetX - this.camera.position.x) * deltaTime * 8;
-        }
-        
-        // Movement tilt calculation
-        if (this.cameraSettings.movementTiltEnabled) {
-            let targetTilt = 0;
-            
-            if (this.keys.left && this.cameraAnimation.isMoving) {
-                targetTilt = this.cameraSettings.movementTiltIntensity;
-            } else if (this.keys.right && this.cameraAnimation.isMoving) {
-                targetTilt = -this.cameraSettings.movementTiltIntensity;
-            }
-            
-            // Smooth tilt transition
-            this.cameraAnimation.currentTilt = this.cameraAnimation.currentTilt + 
-                (targetTilt - this.cameraAnimation.currentTilt) * deltaTime * 5;
-            
-            // Apply tilt to camera
-            this.camera.rotation.z = this.cameraAnimation.currentTilt;
-        } else {
-            this.camera.rotation.z = 0;
-        }
-        
-        // Smooth Z position following instead of rigid locking
-        const targetZ = this.player.position.z;
-        this.camera.position.z = this.camera.position.z + (targetZ - this.camera.position.z) * deltaTime * 10;
-    }
     
     update() {
         if (!this.player || !this.gameStarted || this.gamePaused) return;
@@ -728,24 +477,8 @@ export class AdventureGame {
         
         const movement = new Vector3(0, 0, 0);
         
-        // Calculate movement direction directly from camera's Y rotation only
-        // This ensures perfect alignment with where the camera is looking
-        const cameraYRotation = this.camera.rotation.y;
-        
-        // Calculate forward and right vectors using camera's Y rotation
-        // Fixed alignment: forward should be where camera is looking
-        const forward = new Vector3(
-            Math.sin(cameraYRotation),
-            0,
-            Math.cos(cameraYRotation)
-        );
-        
-        // Right vector is perpendicular to forward (90 degrees clockwise)
-        const right = new Vector3(
-            Math.cos(cameraYRotation),
-            0,
-            -Math.sin(cameraYRotation)
-        );
+        // Get movement directions from camera controller
+        const { forward, right } = this.cameraController.getMovementDirections();
         
         // Build movement vector with normalized diagonal movement
         let forwardInput = 0;
@@ -766,47 +499,82 @@ export class AdventureGame {
             movement.scaleInPlace(moveSpeed);
         }
         
-        // Debug movement and speed (with direction info)
-        if (movement.length() > 0 && Math.random() < 0.02) { // Only log 2% of the time
-            const speedState = this.keys.run ? 'RUNNING' : this.keys.crouch ? 'CROUCHING' : 'WALKING';
-            console.log(`${speedState} - Forward: (${forward.x.toFixed(2)}, ${forward.z.toFixed(2)}), Movement: (${movement.x.toFixed(1)}, ${movement.z.toFixed(1)})`);
-        }
-        
-        // Apply movement - using direct position manipulation for smooth, responsive movement
+        // Apply movement FIRST, before camera updates
         if (movement.length() > 0) {
             const deltaTime = this.engine.getDeltaTime() / 1000;
             
-            // Apply movement directly to position for immediate response
-            const moveVector = movement.scale(deltaTime);
-            this.player.position.addInPlace(moveVector);
+            if (this.player.physicsImpostor && this.player.physicsImpostor.physicsBody) {
+                try {
+                    // Physics-based movement: apply forces instead of direct position manipulation
+                    const currentVelocity = this.player.physicsImpostor.getLinearVelocity();
+                    
+                    // Apply horizontal movement while preserving vertical velocity (for jumping)
+                    const moveVector = movement.scale(deltaTime);
+                    this.player.physicsImpostor.setLinearVelocity(new Vector3(
+                        moveVector.x / deltaTime, // Convert back to velocity
+                        currentVelocity.y, // Preserve Y velocity for jumping/falling
+                        moveVector.z / deltaTime  // Convert back to velocity
+                    ));
+                    
+                    // Update player position from physics body
+                    const physicsPos = this.player.physicsImpostor.physicsBody.position;
+                    this.player.position.set(physicsPos.x, physicsPos.y, physicsPos.z);
+                    
+                } catch (error) {
+                    console.warn('Physics movement error:', error);
+                    // Fall back to direct movement if physics fails
+                    this.player.physicsImpostor = null;
+                }
+            } else {
+                // Non-physics movement: direct position manipulation
+                const moveVector = movement.scale(deltaTime);
+                this.player.position.addInPlace(moveVector);
+                
+                // Apply gravity when not jumping (for non-physics mode)
+                if (!this.isJumping && this.player.position.y > 1) {
+                    const gravity = 18; // Increased gravity for faster falling
+                    this.player.position.y -= gravity * deltaTime;
+                }
+                
+                // Keep player above ground
+                if (this.player.position.y < 1) {
+                    this.player.position.y = 1;
+                }
+            }
+        } else if (this.player.physicsImpostor && this.player.physicsImpostor.physicsBody) {
+            try {
+                // No horizontal movement input - stop horizontal movement but preserve vertical velocity
+                const currentVelocity = this.player.physicsImpostor.getLinearVelocity();
+                this.player.physicsImpostor.setLinearVelocity(new Vector3(
+                    0, // Stop horizontal X movement
+                    currentVelocity.y, // Preserve Y velocity for jumping/falling
+                    0  // Stop horizontal Z movement
+                ));
+                
+                // Update player position from physics body
+                const physicsPos = this.player.physicsImpostor.physicsBody.position;
+                this.player.position.set(physicsPos.x, physicsPos.y, physicsPos.z);
+                
+            } catch (error) {
+                console.warn('Physics stop error:', error);
+            }
+        } else {
+            // No movement and no physics - apply gravity for non-physics mode
+            const deltaTime = this.engine.getDeltaTime() / 1000;
+            if (!this.isJumping && this.player.position.y > 1) {
+                const gravity = 18; // Increased gravity for faster falling
+                this.player.position.y -= gravity * deltaTime;
+            }
             
             // Keep player above ground
             if (this.player.position.y < 1) {
                 this.player.position.y = 1;
             }
-            
-            // Update physics body position if it exists (for collision detection)
-            if (this.player.physicsImpostor && this.player.physicsImpostor.physicsBody) {
-                try {
-                    // Sync physics body with player position
-                    this.player.physicsImpostor.physicsBody.position.set(
-                        this.player.position.x,
-                        this.player.position.y,
-                        this.player.position.z
-                    );
-                    // Reset velocity to prevent physics interference
-                    this.player.physicsImpostor.physicsBody.velocity.set(0, 0, 0);
-                } catch (error) {
-                    console.warn('Physics sync error:', error);
-                }
-            }
         }
         
-        // Update camera effects (head bob, tilt, positioning)
-        this.updateCameraEffects();
-        
-        // Keep camera vertical rotation clamped
-        this.camera.rotation.x = Math.max(-Math.PI/3, Math.min(Math.PI/3, this.camera.rotation.x));
+        // Update camera controller AFTER movement
+        const deltaTime = this.engine.getDeltaTime() / 1000;
+        this.cameraController.update(deltaTime, this.keys);
     }
     
     interact() {
@@ -1031,19 +799,23 @@ export class AdventureGame {
     jump() {
         if (!this.player) return;
         
-        if (this.player.physicsImpostor && this.player.physicsImpostor.physicsBody && this.playerPhysicsBody) {
+        if (this.player.physicsImpostor && this.player.physicsImpostor.physicsBody) {
             try {
                 // Physics-based jump with proper ground detection
                 const velocity = this.player.physicsImpostor.getLinearVelocity();
                 
-                // Check if player is on or near the ground (allow small tolerance for physics)
-                const isOnGround = Math.abs(velocity.y) < 1.0 && this.player.position.y < 2.0;
+                // Improved ground detection: check if player is close to ground level and not moving up fast
+                const groundLevel = 1.0; // Ground is at Y=1
+                const groundTolerance = 0.5; // Allow some tolerance for physics fluctuations
+                const isOnGround = (this.player.position.y <= groundLevel + groundTolerance) && velocity.y <= 0.5;
                 
                 if (isOnGround) {
                     // Apply jump force while preserving horizontal movement
-                    const jumpForce = 10; // Adjust for desired jump height
+                    const jumpForce = 10; // Increased for faster jump without reducing height
                     this.player.physicsImpostor.setLinearVelocity(new Vector3(velocity.x, jumpForce, velocity.z));
-                    console.log('Jump! 🦘');
+                    console.log('Jump! 🦘 (Physics-based)');
+                } else {
+                    console.log(`Cannot jump - Height: ${this.player.position.y.toFixed(2)}, Y-Velocity: ${velocity.y.toFixed(2)}`);
                 }
             } catch (error) {
                 console.warn('Physics jump error, falling back to simple jump:', error);
@@ -1053,12 +825,17 @@ export class AdventureGame {
             }
         } else {
             // Simple jump without physics
-            const jumpHeight = 4;
-            const jumpDuration = 0.8;
+            const jumpHeight = 3; // Restored height for better jump feel
+            const jumpDuration = 0.4; // Even faster for snappier movement
             
-            // Prevent multiple jumps
-            if (this.isJumping) return;
+            // Prevent multiple jumps - check if already jumping or too high
+            if (this.isJumping || this.player.position.y > 2.0) {
+                console.log(`Cannot jump - Already jumping: ${this.isJumping}, Height: ${this.player.position.y.toFixed(2)}`);
+                return;
+            }
+            
             this.isJumping = true;
+            console.log('Jump! 🦘 (Animation-based)');
             
             const startY = this.player.position.y;
             const targetY = startY + jumpHeight;
@@ -1075,6 +852,7 @@ export class AdventureGame {
                 } else {
                     this.player.position.y = startY; // Land
                     this.isJumping = false;
+                    console.log('Landed! 🏃');
                 }
             };
             
@@ -1184,26 +962,28 @@ export class AdventureGame {
     }
     
     updateCameraSettings(settings) {
-        // Update camera settings and apply them immediately
-        console.log('Updating camera settings with:', settings);
-        console.log('Current camera settings before update:', this.cameraSettings);
-        this.cameraSettings = { ...this.cameraSettings, ...settings };
-        this.applyCameraSettings();
-        console.log('Camera settings updated:', this.cameraSettings);
+        // Update camera settings through camera controller
+        if (this.cameraController) {
+            this.cameraController.updateSettings(settings);
+        }
     }
     
     updateMouseSensitivity(sensitivity) {
-        this.cameraSettings.sensitivity = sensitivity;
-        this.applyCameraSettings();
+        if (this.cameraController) {
+            this.cameraController.updateSensitivity(sensitivity);
+        }
     }
     
     updateInvertMouseY(invert) {
-        this.cameraSettings.invertY = invert;
-        this.applyCameraSettings();
+        if (this.cameraController) {
+            this.cameraController.updateInvertY(invert);
+        }
     }
     
     updateCameraSmoothing(smooth) {
-        this.cameraSettings.smoothing = smooth;
-        this.applyCameraSettings();
+        // Camera smoothing is handled internally by camera controller
+        if (this.cameraController) {
+            this.cameraController.updateSettings({ smoothing: smooth });
+        }
     }
 } 

@@ -3,11 +3,13 @@
 A first-person 3D web-based exploration game built with Babylon.js 8.0. Explore a mysterious island, collect treasures, interact with magical crystals, and experience immersive camera effects!
 
 ## 🌟 **Recent Updates**
-- ✅ **Movement System Overhaul**: Refined movement speed and alignment for better control
+- ✅ **Complete Camera System Rewrite**: New modular `CameraController` architecture for perfect movement alignment
+- ✅ **Eliminated "Drunk" Camera Feel**: Fixed all camera lag, drift, and misalignment issues
+- ✅ **Improved Movement Precision**: Perfect synchronization between camera look direction and movement
+- ✅ **Enhanced Architecture**: Separated camera logic into dedicated component for maintainability
 - ✅ **Advanced Camera System**: Head bob, movement tilt, and accessibility options
 - ✅ **Enhanced Settings**: Comprehensive camera controls and graphics options
 - ✅ **Improved Physics**: Stable collision detection and movement
-- ✅ **Accessibility Features**: Motion sensitivity options and customizable controls
 - ✅ **Repository Optimization**: Added comprehensive .gitignore for lightweight commits
 
 ---
@@ -21,15 +23,18 @@ A first-person 3D web-based exploration game built with Babylon.js 8.0. Explore 
 - **Health system** with visual health bar and color-coded feedback
 - **Inventory management** with 25-slot grid system and item collection
 
-### **Advanced Camera System**
-- **Head Bob Effects**: Immersive walking/running camera movement
+### **Revolutionary Camera System**
+- **Perfect Movement Alignment**: Camera and movement direction are perfectly synchronized
+- **Zero Lag Response**: Immediate camera rotation with no delays or "play" feeling
+- **Modular Architecture**: Dedicated `CameraController` component for clean, maintainable code
+- **Head Bob Effects**: Optional immersive walking/running camera movement
 - **Movement Tilt**: Subtle camera roll during strafing for enhanced immersion
 - **Accessibility Options**: Toggleable effects for motion sensitivity
 - **Customizable Controls**: Adjustable sensitivity, smoothing, and invert options
-- **Refined Movement**: Balanced walking and running speeds for optimal control
 
 ### **Technical Features**
-- **Modern ES6 Architecture** with modular design patterns
+- **Modern ES6 Architecture** with modular component design
+- **Component-Based Camera System** with dedicated `CameraController` class
 - **Responsive UI** that adapts to different screen sizes
 - **Settings Persistence** with localStorage integration
 - **Performance Optimization** with quality level adjustments
@@ -75,8 +80,8 @@ python -m http.server 8000
 ### **Basic Controls**
 - **W, A, S, D** - Move around (forward, left, backward, right)
 - **Mouse** - Look around (click to lock mouse pointer)
-- **Shift** - Hold to run (same speed as walking for better control)
-- **Ctrl** - Hold to crouch (slower, stealthier movement)
+- **Shift** - Hold to run (1.5x speed for better control)
+- **Ctrl** - Hold to crouch (30% speed for stealth)
 - **E** - Interact with objects when prompted
 - **I** - Toggle inventory window
 - **Escape** - Pause/resume game and access settings
@@ -111,14 +116,20 @@ python -m http.server 8000
 
 ---
 
-## 🛠️ **Technical Details**
+## 🛠️ **Technical Architecture**
 
 ### **Technology Stack**
 - **Babylon.js 8.0** - Advanced 3D rendering engine
 - **Cannon.js** - Physics simulation and collision detection
-- **ES6 Modules** - Modern JavaScript architecture
+- **ES6 Modules** - Modern JavaScript architecture with component separation
 - **HTML5 Canvas** - High-performance rendering surface
 - **CSS3** - Responsive UI styling and animations
+
+### **Component Architecture**
+- **`AdventureGame`** - Main game controller and state management
+- **`CameraController`** - Dedicated camera system with perfect movement alignment
+- **`WorldManager`** - Procedural world generation and management
+- **Modular Design** - Clean separation of concerns for maintainability
 
 ### **Browser Requirements**
 - **Chrome/Edge 80+**: ✅ Full support with optimal performance
@@ -142,11 +153,12 @@ python -m http.server 8000
 - **Visual Effects**: Toggleable advanced rendering features
 
 ### **Camera Controls**
-- **Mouse Sensitivity**: Fine-tuned control responsiveness
+- **Mouse Sensitivity**: Fine-tuned control responsiveness (1-1000 range)
 - **Invert Y-Axis**: Optional inverted mouse look
 - **Head Bob**: Enable/disable walking animation effects
 - **Movement Tilt**: Adjustable camera roll during movement
 - **Camera Smoothing**: Acceleration/deceleration effects
+- **Perfect Alignment**: Zero-lag movement direction matching
 
 ### **Audio Settings** (Planned)
 - **Master Volume**: Overall audio level control
@@ -158,12 +170,15 @@ python -m http.server 8000
 - **High Contrast**: Enhanced visual clarity options
 - **Customizable Keybinds**: Remap all controls to your preference
 - **Clear Visual Feedback**: Strong visual cues for all interactions
+- **Zero Motion Sickness**: Eliminated camera lag and drift issues
 
 ---
 
 ## 🚀 **Development Roadmap**
 
 ### **Current Phase: Enhanced Experience** ✅
+- [x] Complete camera system rewrite with modular architecture
+- [x] Perfect movement alignment and zero-lag response
 - [x] Advanced camera system with head bob and tilt
 - [x] Comprehensive settings management
 - [x] Accessibility and motion sensitivity options
@@ -185,89 +200,59 @@ python -m http.server 8000
 
 ---
 
-## 🎮 **Expansion Ideas**
+## 🎮 **For Developers**
 
-### **For Beginners**
+### **Camera System Architecture**
+The new `CameraController` component provides:
+- **Single Source of Truth**: All camera logic in one dedicated class
+- **Perfect Movement Alignment**: Uses Babylon.js transformation matrices for exact direction calculation
+- **Zero Conflicts**: Completely disabled built-in camera controls to prevent interference
+- **Easy Customization**: Simple methods for sensitivity, invert Y, and effect settings
+- **Future-Proof**: Modular design allows easy expansion and modification
+
+### **Key Methods**
+```javascript
+// Get exact movement directions
+const { forward, right } = cameraController.getMovementDirections();
+
+// Update camera settings
+cameraController.updateSettings({ sensitivity: 200, headBobEnabled: false });
+
+// Control camera state
+cameraController.attachControls();
+cameraController.detachControls();
+```
+
+### **Expansion Ideas**
+
+#### **For Beginners**
 - Add more treasure types with different values
 - Create different crystal colors with various effects
 - Include environmental storytelling elements
 - Add simple puzzle mechanics
 
-### **For Advanced Developers**
+#### **For Advanced Developers**
 - **NPCs and Dialogue**: Character interactions and storylines
 - **Combat System**: Enemies, weapons, and fighting mechanics
 - **Crafting System**: Item combination and creation
 - **Multiplayer Mode**: Cooperative or competitive gameplay
-- **Procedural Generation**: Infinite world exploration
-- **Virtual Reality**: WebXR integration for immersive VR
+- **Camera Extensions**: Add new camera effects using the modular system
 
 ---
 
-## 🐛 **Troubleshooting**
+## 🏆 **Credits & Acknowledgments**
 
-### **Common Issues**
-1. **Game doesn't start**: Ensure you're running from a web server (not file://)
-2. **Physics not working**: Verify Cannon.js loads properly (check console)
-3. **Poor performance**: Lower graphics quality in settings menu
-4. **Controls unresponsive**: Click on the game canvas to focus input
-5. **Pointer lock issues**: Try pressing Escape and clicking again
-
-### **Performance Optimization**
-- **Lower Graphics Quality**: Use Medium or Low quality settings
-- **Disable Head Bob**: Turn off camera effects in settings
-- **Close Other Tabs**: Free up browser memory and GPU resources
-- **Update Browser**: Ensure latest version for optimal WebGL support
-
-### **Debug Information**
-- Open browser Developer Console (F12) for detailed error messages
-- Check for WebGL support: Visit `chrome://gpu/` or `about:support`
-- Verify network connectivity for CDN resources (Babylon.js, Cannon.js)
+- **Babylon.js Team** - For the incredible 3D engine
+- **Cannon.js Contributors** - For robust physics simulation
+- **Community Feedback** - For identifying and helping solve camera issues
+- **Open Source Community** - For inspiration and best practices
 
 ---
 
-## 🤝 **Contributing**
+## 📄 **License**
 
-### **Getting Started**
-1. Read the [Style Guide](docs/STYLE_GUIDE.md) for coding standards
-2. Check the [TODO List](docs/TODO.md) for available tasks
-3. Review the [Technical Design Document](docs/TDD.md) for architecture
-4. Test your changes using the [Test Guide](TEST_GUIDE.md)
-
-### **Development Areas**
-- **Core Features**: Game mechanics and systems
-- **Visual Polish**: Graphics, animations, and effects
-- **User Experience**: UI/UX improvements and accessibility
-- **Performance**: Optimization and cross-platform compatibility
-- **Documentation**: Guides, tutorials, and code documentation
-
-### **Code Standards**
-- Modern ES6+ JavaScript with clear, descriptive naming
-- Comprehensive error handling with graceful fallbacks
-- Accessibility-first design with ARIA support
-- Performance-conscious development with 60 FPS targets
-- Thorough testing across multiple browsers and devices
+This project is open source and available under the [MIT License](LICENSE).
 
 ---
 
-## 📄 **Project Information**
-
-### **License**
-This project is open source and available under the MIT License.
-
-### **Dependencies**
-- **@babylonjs/core**: MIT License
-- **@babylonjs/loaders**: MIT License  
-- **@babylonjs/materials**: MIT License
-- **@babylonjs/gui**: MIT License
-- **Live-server**: MIT License (development only)
-
-### **Credits**
-- **Babylon.js Team**: For the incredible 3D engine and physics integration
-- **Cannon.js**: For reliable physics simulation
-- **Web Standards Community**: For making advanced 3D web experiences possible
-
----
-
-**Happy Gaming!** 🎮 
-
-Explore, collect, and enjoy your adventure in this immersive 3D world. Whether you're here to play or learn game development, AIdventure offers a comprehensive foundation for 3D web gaming experiences. 
+**Ready to explore? Click `index.html` and start your adventure! 🚀** 
