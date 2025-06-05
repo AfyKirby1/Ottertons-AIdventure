@@ -94,46 +94,65 @@ export class Tree extends GameObject {
     
     createRootBase(x, z, baseRadius, baseHeight) {
         // Create flared root base with irregular shape
+        const segments = 12;
         const rootVertices = [];
         const rootIndices = [];
-        const segments = 12;
         
-        // Create irregular base shape
+        // Center point (trunk connection)
+        rootVertices.push(0, baseHeight, 0);
+        
+        // Create irregular base shape with flares
         for (let i = 0; i <= segments; i++) {
             const angle = (i / segments) * Math.PI * 2;
-            const radiusVariation = 0.8 + Math.random() * 0.4; // Random flare
+            const radiusVariation = 0.6 + Math.random() * 0.8; // More dramatic variation
             const radius = baseRadius * radiusVariation;
             
-            // Bottom vertices (ground level)
+            // Create root flare points at different heights
+            const flareHeight = baseHeight * (0.3 + Math.random() * 0.4);
+            
+            // Bottom vertices (ground level) - create root spread
             rootVertices.push(
                 Math.cos(angle) * radius, 0, Math.sin(angle) * radius
             );
             
-            // Top vertices (connecting to trunk)
+            // Mid vertices (flare points)
             rootVertices.push(
-                Math.cos(angle) * baseRadius * 0.6, baseHeight, Math.sin(angle) * baseRadius * 0.6
+                Math.cos(angle) * radius * 0.7, flareHeight, Math.sin(angle) * radius * 0.7
             );
         }
         
-        // Create triangular faces
-        for (let i = 0; i < segments; i++) {
-            const bottom1 = i * 2;
-            const top1 = i * 2 + 1;
-            const bottom2 = ((i + 1) % segments) * 2;
-            const top2 = ((i + 1) % segments) * 2 + 1;
-            
-            // Two triangles per segment
-            rootIndices.push(bottom1, top1, bottom2);
-            rootIndices.push(bottom2, top1, top2);
-        }
+        // Create custom mesh using CreateLathe for smooth root flare
+        const rootProfile = [];
         
-        this.roots = MeshBuilder.CreateBox('roots', {size: 1}, this.scene); // Placeholder
-        // Apply custom geometry (simplified for now)
-        this.roots.scaling = new Vector3(baseRadius, baseHeight, baseRadius);
-        this.roots.position = new Vector3(x, baseHeight/2, z);
+        // Profile points from bottom to top
+        rootProfile.push(new Vector3(baseRadius * 1.2, 0, 0)); // Wide base
+        rootProfile.push(new Vector3(baseRadius * 1.0, baseHeight * 0.3, 0)); // Mid flare
+        rootProfile.push(new Vector3(baseRadius * 0.7, baseHeight * 0.7, 0)); // Upper taper
+        rootProfile.push(new Vector3(baseRadius * 0.5, baseHeight, 0)); // Top connection
         
+        this.roots = MeshBuilder.CreateLathe('roots', {
+            shape: rootProfile,
+            tessellation: 16,
+            closed: false
+        }, this.scene);
+        
+        this.roots.position = new Vector3(x, 0, z);
+        
+        // Make roots slightly irregular
+        this.roots.scaling = new Vector3(
+            0.9 + Math.random() * 0.2,
+            1.0,
+            0.9 + Math.random() * 0.2
+        );
+        
+        // Add some surface bumps for organic look
         const rootMaterial = new StandardMaterial('rootMat', this.scene);
-        rootMaterial.diffuseColor = new Color3(0.3, 0.15, 0.08); // Dark brown
+        rootMaterial.diffuseColor = new Color3(
+            0.28 + Math.random() * 0.1, 
+            0.15 + Math.random() * 0.05, 
+            0.08 + Math.random() * 0.03
+        ); // Varied dark brown
+        rootMaterial.specularColor = new Color3(0.1, 0.1, 0.1);
         this.roots.material = rootMaterial;
     }
     
@@ -721,33 +740,82 @@ export class Hill extends GameObject {
         for (let i = 0; i < rockCount; i++) {
             const angle = Math.random() * Math.PI * 2;
             const distance = baseSize * (0.3 + Math.random() * 0.4);
-            const rockSize = 0.2 + Math.random() * 0.3;
+            const rockSize = 0.2 + Math.random() * 0.4;
             
-            const rock = MeshBuilder.CreateSphere('rock', {
-                diameter: rockSize,
-                segments: 6 // Angular rocks
+            // Use polyhedron for more interesting rock shapes
+            const rock = MeshBuilder.CreatePolyhedron('hillRock', {
+                type: Math.floor(Math.random() * 4), // Random polyhedron type
+                size: rockSize,
+                flat: true // Angular appearance
             }, this.scene);
             
             rock.position = new Vector3(
                 x + Math.cos(angle) * distance,
-                rockSize * 0.3, // Partially buried
+                rockSize * 0.4, // Partially buried
                 z + Math.sin(angle) * distance
             );
             
-            // Make rocks look more natural
+            // Make rocks look more natural with irregular scaling
             rock.scaling = new Vector3(
-                1 + (Math.random() - 0.5) * 0.5,
-                0.6 + Math.random() * 0.3,
-                1 + (Math.random() - 0.5) * 0.5
+                0.6 + Math.random() * 0.8,
+                0.4 + Math.random() * 0.6,
+                0.6 + Math.random() * 0.8
             );
             
-            const rockMaterial = new StandardMaterial('rockMat', this.scene);
-            rockMaterial.diffuseColor = new Color3(
-                0.3 + Math.random() * 0.2,
-                0.3 + Math.random() * 0.2,
-                0.25 + Math.random() * 0.15
-            );
+            // Random rotation for natural placement
+            rock.rotation.x = (Math.random() - 0.5) * 1.0;
+            rock.rotation.y = Math.random() * Math.PI * 2;
+            rock.rotation.z = (Math.random() - 0.5) * 1.0;
+            
+            // Enhanced rock material with more variety
+            const rockMaterial = new StandardMaterial('hillRockMat', this.scene);
+            const rockType = Math.random();
+            
+            if (rockType < 0.25) {
+                // Dark gray granite-like
+                rockMaterial.diffuseColor = new Color3(0.25, 0.25, 0.3);
+            } else if (rockType < 0.5) {
+                // Brown sandstone-like
+                rockMaterial.diffuseColor = new Color3(0.4, 0.3, 0.2);
+            } else if (rockType < 0.75) {
+                // Light gray
+                rockMaterial.diffuseColor = new Color3(0.45, 0.45, 0.45);
+            } else {
+                // Reddish rock
+                rockMaterial.diffuseColor = new Color3(0.45, 0.25, 0.2);
+            }
+            
+            // Add mineral-like specular highlights
+            rockMaterial.specularColor = new Color3(0.3, 0.3, 0.3);
+            rockMaterial.specularPower = 64; // Sharp, mineral-like reflections
             rock.material = rockMaterial;
+        }
+        
+        // Add some small vegetation patches around hills
+        const grassPatchCount = 1 + Math.floor(Math.random() * 3);
+        
+        for (let i = 0; i < grassPatchCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const distance = baseSize * (0.6 + Math.random() * 0.3);
+            const patchSize = 0.5 + Math.random() * 0.3;
+            
+            const grassPatch = MeshBuilder.CreateCylinder('grassPatch', {
+                height: 0.1,
+                diameterTop: patchSize,
+                diameterBottom: patchSize * 1.2,
+                tessellation: 8
+            }, this.scene);
+            
+            grassPatch.position = new Vector3(
+                x + Math.cos(angle) * distance,
+                0.05,
+                z + Math.sin(angle) * distance
+            );
+            
+            const grassMaterial = new StandardMaterial('grassPatchMat', this.scene);
+            grassMaterial.diffuseColor = new Color3(0.15, 0.4, 0.15);
+            grassMaterial.specularColor = new Color3(0.05, 0.05, 0.05);
+            grassPatch.material = grassMaterial;
         }
     }
 } 

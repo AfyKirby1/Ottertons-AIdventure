@@ -203,99 +203,68 @@ export class WorldManager {
         const groundTexture = new DynamicTexture('groundTexture', textureSize, this.scene, false);
         const ctx = groundTexture.getContext();
         
-        // Create base grass color first
-        ctx.fillStyle = '#4a7c3a'; // Base grass color
+        // Clear the canvas first
+        ctx.clearRect(0, 0, textureSize, textureSize);
+        
+        // Create a more realistic grass base
+        const gradient = ctx.createRadialGradient(textureSize/2, textureSize/2, 0, textureSize/2, textureSize/2, textureSize/2);
+        gradient.addColorStop(0, '#5a8a4a'); // Brighter center
+        gradient.addColorStop(0.7, '#4a7c3a'); // Medium green
+        gradient.addColorStop(1, '#3a6c2a'); // Darker edges
+        
+        ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, textureSize, textureSize);
         
-        // Determine detail level based on texture size (quality setting)
-        let detailLayers = 4;
-        let bladeDetail = 1.0;
-        if (textureSize <= 256) {
-            detailLayers = 2; // Low quality
-            bladeDetail = 0.5;
-        } else if (textureSize <= 512) {
-            detailLayers = 3; // Medium quality
-            bladeDetail = 0.7;
-        } else {
-            detailLayers = 4; // High/Ultra quality
-            bladeDetail = 1.0;
+        // Add grass blade patterns
+        ctx.strokeStyle = '#2a5c1a';
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.3;
+        
+        // Create grass blade pattern
+        for (let i = 0; i < textureSize * 2; i++) {
+            const x = Math.random() * textureSize;
+            const y = Math.random() * textureSize;
+            const length = 3 + Math.random() * 8;
+            const angle = Math.random() * Math.PI * 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + Math.cos(angle) * length, y + Math.sin(angle) * length);
+            ctx.stroke();
         }
         
-        // Add multiple layers of grass detail with full coverage
-        for (let layer = 0; layer < detailLayers; layer++) {
-            const layerImageData = ctx.createImageData(textureSize, textureSize);
-            const layerData = layerImageData.data;
-            const scale = 0.005 + layer * 0.008; // Smaller scale for better coverage
+        // Add dirt patches
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#8b6f47';
+        
+        for (let i = 0; i < 20; i++) {
+            const x = Math.random() * textureSize;
+            const y = Math.random() * textureSize;
+            const size = 5 + Math.random() * 15;
             
-            for (let x = 0; x < textureSize; x++) {
-                for (let y = 0; y < textureSize; y++) {
-                    const index = (y * textureSize + x) * 4;
-                    
-                    // Use noise for natural grass patterns
-                    const grassNoise = this.noise.perlinNoise(x * scale, y * scale, 3, 0.6);
-                    
-                    if (layer === 0) {
-                        // Base grass detail layer
-                        if (grassNoise > 0.3) {
-                            const intensity = (grassNoise - 0.3) * 2;
-                            layerData[index] = Math.floor(30 + intensity * 40);     // R
-                            layerData[index + 1] = Math.floor(60 + intensity * 80); // G
-                            layerData[index + 2] = Math.floor(20 + intensity * 30); // B
-                            layerData[index + 3] = Math.floor(intensity * 120);     // A
-                        }
-                    } else if (layer === 1) {
-                        // Lighter green spots (more frequent)
-                        if (grassNoise > 0.1) {
-                            const intensity = (grassNoise - 0.1) * 1.2;
-                            layerData[index] = Math.floor(50 + intensity * 60);     // R
-                            layerData[index + 1] = Math.floor(100 + intensity * 100); // G
-                            layerData[index + 2] = Math.floor(30 + intensity * 40); // B
-                            layerData[index + 3] = Math.floor(intensity * 100);     // A
-                        }
-                    } else if (layer === 2) {
-                        // Brown dirt patches
-                        if (grassNoise > 0.7) {
-                            const intensity = (grassNoise - 0.7) * 3;
-                            layerData[index] = Math.floor(80 + intensity * 60);     // R
-                            layerData[index + 1] = Math.floor(50 + intensity * 40); // G
-                            layerData[index + 2] = Math.floor(20 + intensity * 30); // B
-                            layerData[index + 3] = Math.floor(intensity * 150);     // A
-                        }
-                    } else if (layer === 3 && bladeDetail >= 1.0) {
-                        // Individual grass blade details (high quality only)
-                        if (grassNoise > 0.85) {
-                            layerData[index] = 10;     // Dark lines for grass blades
-                            layerData[index + 1] = 40;
-                            layerData[index + 2] = 10;
-                            layerData[index + 3] = 80;
-                        }
-                    }
-                }
-            }
-            
-            // Apply layer to canvas
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = textureSize;
-            tempCanvas.height = textureSize;
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.putImageData(layerImageData, 0, 0);
-            
-            if (layer === 0) {
-                ctx.globalCompositeOperation = 'source-over';
-                ctx.globalAlpha = 1.0;
-            } else {
-                ctx.globalCompositeOperation = layer === 1 ? 'multiply' : 'overlay';
-                ctx.globalAlpha = 0.7 - layer * 0.1; // Decrease opacity for upper layers
-            }
-            ctx.drawImage(tempCanvas, 0, 0);
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
         }
         
-        // Reset composite operation and alpha
-        ctx.globalCompositeOperation = 'source-over';
+        // Add small rocks/pebbles
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = '#666';
+        
+        for (let i = 0; i < 30; i++) {
+            const x = Math.random() * textureSize;
+            const y = Math.random() * textureSize;
+            const size = 1 + Math.random() * 3;
+            
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Reset alpha
         ctx.globalAlpha = 1.0;
         
         groundTexture.update();
-        
         return groundTexture;
     }
     
@@ -367,11 +336,15 @@ export class WorldManager {
         const adjustedTreeCount = Math.floor(this.config.treeCount * sizeMultiplier);
         const adjustedTreasureCount = Math.floor(this.config.treasureCount * sizeMultiplier);
         const adjustedCrystalCount = Math.floor(this.config.crystalCount * sizeMultiplier);
+        const adjustedBushCount = Math.floor(15 * sizeMultiplier); // Add bushes!
+        const adjustedRockCount = Math.floor(20 * sizeMultiplier); // Add standalone rocks!
         
         // Create objects with seeded positions
         promises.push(this.createTrees(adjustedTreeCount));
         promises.push(this.createTreasures(adjustedTreasureCount));
         promises.push(this.createCrystals(adjustedCrystalCount));
+        promises.push(this.createBushes(adjustedBushCount));
+        promises.push(this.createRocks(adjustedRockCount));
         
         await Promise.all(promises);
     }
@@ -425,18 +398,190 @@ export class WorldManager {
     }
     
     /**
-     * Create magical crystals with seeded placement and enhanced glow
+     * Create crystals with seeded placement and enhanced distribution
      */
     async createCrystals(count) {
-        console.log(`💎 Creating ${count} enhanced magical crystals...`);
+        console.log(`💎 Creating ${count} enhanced crystals...`);
         
         for (let i = 0; i < count; i++) {
+            // Use different seed offset for crystals
             const x = (this.noise.random(i, 500) - 0.5) * (this.config.terrainSize * 0.8);
             const z = (this.noise.random(i, 600) - 0.5) * (this.config.terrainSize * 0.8);
             
-            const crystal = new Crystal(this.scene, x, z, this.interactables);
-            this.objects.push(crystal);
+            // Avoid placing crystals too close to hills
+            let tooClose = false;
+            for (const hill of this.hills) {
+                if (hill.mesh) {
+                    const distance = Math.sqrt(
+                        Math.pow(x - hill.mesh.position.x, 2) + 
+                        Math.pow(z - hill.mesh.position.z, 2)
+                    );
+                    if (distance < 6) {
+                        tooClose = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!tooClose) {
+                const crystal = new Crystal(this.scene, x, z, this.interactables);
+                this.objects.push(crystal);
+            }
         }
+        
+        console.log(`✅ Created ${this.objects.filter(obj => obj instanceof Crystal).length} crystals`);
+    }
+    
+    /**
+     * Create bushes with seeded placement for world decoration
+     */
+    async createBushes(count) {
+        console.log(`🌿 Creating ${count} bushes...`);
+        
+        for (let i = 0; i < count; i++) {
+            // Use different seed offset for bushes
+            const x = (this.noise.random(i, 700) - 0.5) * (this.config.terrainSize * 0.9);
+            const z = (this.noise.random(i, 800) - 0.5) * (this.config.terrainSize * 0.9);
+            
+            // Avoid placing bushes too close to other objects
+            let tooClose = false;
+            for (const hill of this.hills) {
+                if (hill.mesh) {
+                    const distance = Math.sqrt(
+                        Math.pow(x - hill.mesh.position.x, 2) + 
+                        Math.pow(z - hill.mesh.position.z, 2)
+                    );
+                    if (distance < 4) {
+                        tooClose = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!tooClose) {
+                const bush = this.createBush(x, z);
+                this.objects.push(bush);
+            }
+        }
+        
+        console.log(`✅ Created ${this.objects.filter(obj => obj.name === 'bush').length} bushes`);
+    }
+
+    /**
+     * Create standalone rocks with enhanced detail for decoration
+     */
+    async createRocks(count) {
+        console.log(`🪨 Creating ${count} detailed rocks...`);
+        
+        for (let i = 0; i < count; i++) {
+            // Use different seed offset for rocks
+            const x = (this.noise.random(i, 900) - 0.5) * (this.config.terrainSize * 0.95);
+            const z = (this.noise.random(i, 1000) - 0.5) * (this.config.terrainSize * 0.95);
+            
+            const rock = this.createDetailedRock(x, z);
+            this.objects.push(rock);
+        }
+        
+        console.log(`✅ Created ${this.objects.filter(obj => obj.name === 'detailedRock').length} detailed rocks`);
+    }
+    
+    /**
+     * Create a single bush object with natural appearance
+     */
+    createBush(x, z) {
+        const bushSize = 1.5 + Math.random() * 1.0; // Size between 1.5-2.5
+        
+        // Create main bush body using irregular sphere
+        const bush = MeshBuilder.CreateIcoSphere('bush', {
+            radius: bushSize,
+            subdivisions: 2, // Low subdivisions for more angular, natural look
+            flat: true // Flat shading for more distinct faces
+        }, this.scene);
+        
+        bush.position = new Vector3(x, bushSize * 0.6, z); // Partially in ground
+        
+        // Make bush irregular and organic
+        bush.scaling = new Vector3(
+            0.8 + Math.random() * 0.4, // X variation
+            0.6 + Math.random() * 0.3, // Height variation  
+            0.8 + Math.random() * 0.4  // Z variation
+        );
+        
+        // Random rotation for variety
+        bush.rotation.y = Math.random() * Math.PI * 2;
+        
+        // Create bush material with varied greens
+        const bushMaterial = new StandardMaterial('bushMat', this.scene);
+        const greenType = Math.random();
+        
+        if (greenType < 0.4) {
+            // Dark green bush
+            bushMaterial.diffuseColor = new Color3(0.1, 0.3, 0.1);
+        } else if (greenType < 0.7) {
+            // Medium green bush
+            bushMaterial.diffuseColor = new Color3(0.15, 0.4, 0.15);
+        } else {
+            // Light green/yellowish bush
+            bushMaterial.diffuseColor = new Color3(0.2, 0.45, 0.12);
+        }
+        
+        bushMaterial.specularColor = new Color3(0.05, 0.05, 0.05); // Low shine
+        bush.material = bushMaterial;
+        
+        return bush;
+    }
+    
+    /**
+     * Create a detailed rock with better geometry and texturing
+     */
+    createDetailedRock(x, z) {
+        const rockSize = 0.5 + Math.random() * 1.2; // Size between 0.5-1.7
+        
+        // Create rock using dodecahedron for more interesting shape
+        const rock = MeshBuilder.CreatePolyhedron('detailedRock', {
+            type: 2, // Dodecahedron
+            size: rockSize,
+            flat: true // Flat shading for angular appearance
+        }, this.scene);
+        
+        rock.position = new Vector3(x, rockSize * 0.4, z); // Partially buried
+        
+        // Make rocks irregular
+        rock.scaling = new Vector3(
+            0.7 + Math.random() * 0.6, // X variation
+            0.5 + Math.random() * 0.4, // Height variation
+            0.7 + Math.random() * 0.6  // Z variation
+        );
+        
+        // Random rotation for natural placement
+        rock.rotation.x = (Math.random() - 0.5) * 0.6;
+        rock.rotation.y = Math.random() * Math.PI * 2;
+        rock.rotation.z = (Math.random() - 0.5) * 0.6;
+        
+        // Create realistic rock material with color variation
+        const rockMaterial = new StandardMaterial('detailedRockMat', this.scene);
+        const rockColorType = Math.random();
+        
+        if (rockColorType < 0.3) {
+            // Gray rock
+            rockMaterial.diffuseColor = new Color3(0.4, 0.4, 0.4);
+        } else if (rockColorType < 0.6) {
+            // Brown rock
+            rockMaterial.diffuseColor = new Color3(0.45, 0.35, 0.25);
+        } else if (rockColorType < 0.85) {
+            // Dark gray rock
+            rockMaterial.diffuseColor = new Color3(0.3, 0.3, 0.35);
+        } else {
+            // Reddish rock
+            rockMaterial.diffuseColor = new Color3(0.5, 0.3, 0.25);
+        }
+        
+        // Add some specular highlights for mineral shimmer
+        rockMaterial.specularColor = new Color3(0.2, 0.2, 0.2);
+        rockMaterial.specularPower = 32; // Sharp highlights
+        rock.material = rockMaterial;
+        
+        return rock;
     }
     
     /**
