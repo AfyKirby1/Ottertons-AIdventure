@@ -1,3 +1,5 @@
+import { WorldManager } from './systems/WorldManager.js';
+
 // Using global BABYLON object from CDN
 const { 
     Engine, 
@@ -112,6 +114,9 @@ export class AdventureGame {
         // Interactables array
         this.interactables = [];
         
+        // World manager
+        this.worldManager = null;
+        
         // Physics world reference
         this.physicsPlugin = null;
         
@@ -142,8 +147,8 @@ export class AdventureGame {
     async init() {
         console.log('[DEBUG] AdventureGame.init() started.');
         if (typeof BABYLON !== 'undefined' && BABYLON.FreeCamera && BABYLON.FreeCamera.prototype) {
-            console.log('[DEBUG] init: typeof BABYLON.FreeCamera.prototype.setParent:', typeof BABYLON.FreeCamera.prototype.setParent);
-            console.log('[DEBUG] init: typeof BABYLON.FreeCamera.prototype.attachControls:', typeof BABYLON.FreeCamera.prototype.attachControls);
+                    // console.log('[DEBUG] init: typeof BABYLON.FreeCamera.prototype.setParent:', typeof BABYLON.FreeCamera.prototype.setParent);
+        // console.log('[DEBUG] init: typeof BABYLON.FreeCamera.prototype.attachControls:', typeof BABYLON.FreeCamera.prototype.attachControls);
         } else {
             console.log('[DEBUG] init: BABYLON.FreeCamera or its prototype is not (yet) fully defined.');
         }
@@ -254,15 +259,18 @@ export class AdventureGame {
             this.createLighting();
             this.setupControls(); // this.camera is created here
             
-            console.log('[DEBUG] init: After setupControls - this.camera.constructor.name:', this.camera ? this.camera.constructor.name : 'N/A');
-            console.log('[DEBUG] init: After setupControls - typeof this.camera.setParent:', this.camera ? typeof this.camera.setParent : 'N/A');
+            console.log('[DEBUG] init: After setupControls - Camera created successfully');
+            // console.log('[DEBUG] init: After setupControls - typeof this.camera.setParent:', this.camera ? typeof this.camera.setParent : 'N/A');
 
-            await this.createWorld();
+            // Initialize world manager and create world
+            this.worldManager = new WorldManager(this.scene, this.interactables);
+            await this.worldManager.generateWorld();
+            
             this.createPlayer(); // this.player is created
             
-            console.log('[DEBUG] init: After createPlayer - this.camera.constructor.name:', this.camera ? this.camera.constructor.name : 'N/A');
-            console.log('[DEBUG] init: After createPlayer - typeof this.camera.setParent:', this.camera ? typeof this.camera.setParent : 'N/A');
-            console.log('[DEBUG] init: After createPlayer - this.camera === this.player:', this.camera === this.player);
+            console.log('[DEBUG] init: After createPlayer - Player created successfully');
+            // console.log('[DEBUG] init: After createPlayer - typeof this.camera.setParent:', this.camera ? typeof this.camera.setParent : 'N/A');
+            // console.log('[DEBUG] init: After createPlayer - this.camera === this.player:', this.camera === this.player);
 
             this.setupUI();
             
@@ -280,9 +288,7 @@ export class AdventureGame {
             console.log('Adventure Game initialized! Auto-starting game...');
             
             setTimeout(() => {
-                console.log('[DEBUG] startGame timeout: this.camera.constructor.name:', this.camera ? this.camera.constructor.name : 'N/A');
-                console.log('[DEBUG] startGame timeout: typeof this.camera.setParent:', this.camera ? typeof this.camera.setParent : 'N/A');
-                console.log('[DEBUG] startGame timeout: this.camera === this.player:', this.camera === this.player);
+                console.log('[DEBUG] Starting game after initialization delay...');
                 this.startGame();
             }, 1000); // Delay to allow menu system to potentially interact
             
@@ -292,152 +298,40 @@ export class AdventureGame {
         }
     }
     
-    async createWorld() {
-        // Create ground
-        const ground = MeshBuilder.CreateGround('ground', {width: 100, height: 100}, this.scene);
-        const groundMaterial = new StandardMaterial('groundMat', this.scene);
-        groundMaterial.diffuseColor = new Color3(0.2, 0.6, 0.2);
-        groundMaterial.specularColor = new Color3(0, 0, 0);
-        ground.material = groundMaterial;
-        // Add physics to ground if available
-        if (this.scene.isPhysicsEnabled()) {
-            try {
-                ground.physicsImpostor = new PhysicsImpostor(ground, PhysicsImpostor.BoxImpostor, 
-                    { mass: 0, restitution: 0.1 }, this.scene);
-            } catch (error) {
-                console.warn('Ground physics failed:', error);
-            }
-        }
-        
-        // Create some hills/terrain variation
-        for (let i = 0; i < 10; i++) {
-            const hill = MeshBuilder.CreateSphere(`hill${i}`, {diameter: Math.random() * 8 + 4}, this.scene);
-            hill.position = new Vector3(
-                (Math.random() - 0.5) * 80,
-                -2,
-                (Math.random() - 0.5) * 80
-            );
-            hill.material = groundMaterial;
-        }
-        
-        // Create trees
-        for (let i = 0; i < 20; i++) {
-            await this.createTree(
-                (Math.random() - 0.5) * 90,
-                (Math.random() - 0.5) * 90
-            );
-        }
-        
-        // Create treasure chests (interactables)
-        for (let i = 0; i < 5; i++) {
-            this.createTreasureChest(
-                (Math.random() - 0.5) * 70,
-                (Math.random() - 0.5) * 70
-            );
-        }
-        
-        // Create mysterious crystals
-        for (let i = 0; i < 8; i++) {
-            this.createCrystal(
-                (Math.random() - 0.5) * 80,
-                (Math.random() - 0.5) * 80
-            );
-        }
-    }
-    
-    async createTree(x, z) {
-        // Tree trunk
-        const trunk = MeshBuilder.CreateCylinder('trunk', {height: 6, diameter: 1}, this.scene);
-        trunk.position = new Vector3(x, 3, z);
-        const trunkMaterial = new StandardMaterial('trunkMat', this.scene);
-        trunkMaterial.diffuseColor = new Color3(0.4, 0.2, 0.1);
-        trunk.material = trunkMaterial;
-        
-        // Tree leaves
-        const leaves = MeshBuilder.CreateSphere('leaves', {diameter: 8}, this.scene);
-        leaves.position = new Vector3(x, 8, z);
-        const leavesMaterial = new StandardMaterial('leavesMat', this.scene);
-        leavesMaterial.diffuseColor = new Color3(0.1, 0.6, 0.1);
-        leaves.material = leavesMaterial;
-    }
-    
-    createTreasureChest(x, z) {
-        const chest = MeshBuilder.CreateBox('chest', {width: 2, height: 1.5, depth: 1.5}, this.scene);
-        chest.position = new Vector3(x, 0.75, z);
-        
-        const chestMaterial = new StandardMaterial('chestMat', this.scene);
-        chestMaterial.diffuseColor = new Color3(0.6, 0.4, 0.2);
-        chest.material = chestMaterial;
-        
-                 // Add glow effect
-         const glowLayer = new GlowLayer('glow', this.scene);
-        glowLayer.addIncludedOnlyMesh(chest);
-        
-        this.interactables.push({
-            mesh: chest,
-            type: 'treasure',
-            message: 'You found a treasure chest! You gained some gold coins.',
-            reward: 'Gold Coins'
-        });
-    }
-    
-    createCrystal(x, z) {
-        const crystal = MeshBuilder.CreateCylinder('crystal', {
-            height: 3,
-            diameterTop: 0.2,
-            diameterBottom: 1,
-            tessellation: 6
-        }, this.scene);
-        crystal.position = new Vector3(x, 1.5, z);
-        
-                 const crystalMaterial = new StandardMaterial('crystalMat', this.scene);
-         crystalMaterial.diffuseColor = new Color3(0.5, 0.8, 1);
-                  crystalMaterial.emissiveColor = new Color3(0.2, 0.4, 0.6);
-         crystalMaterial.alpha = 0.8;
-        crystal.material = crystalMaterial;
-        
-        // Rotate the crystal
-        this.scene.registerBeforeRender(() => {
-            if (!this.gamePaused) {
-                crystal.rotation.y += 0.01;
-            }
-        });
-        
-        this.interactables.push({
-            mesh: crystal,
-            type: 'crystal',
-            message: 'You absorbed the power of an ancient crystal! Your health is restored.',
-            reward: 'Health Restoration'
-        });
-    }
+    // World creation is now handled by WorldManager
     
     createPlayer() {
-        // Create player (visual representation - can still be a capsule)
-        this.player = MeshBuilder.CreateCapsule('player', {radius: 0.5, height: 2}, this.scene);
-        this.player.position = new Vector3(0, 1, 0); // Adjust starting Y if sphere is radius 1
-        this.player.visibility = 0; // Make invisible if you have a separate visual mesh, or visible for debugging
+        // Create player (visual representation - use a box instead of capsule for better physics compatibility)
+        this.player = MeshBuilder.CreateBox('player', {width: 1, height: 2, depth: 1}, this.scene);
+        this.player.position = new Vector3(0, 3, 0); // Start higher above ground for safety
+        this.player.visibility = 0; // Make invisible for first-person view
         
         // Add physics to player if available
         if (this.scene.isPhysicsEnabled()) {
             try {
-                // Using SphereImpostor for better compatibility with Cannon.js
-                this.player.physicsImpostor = new PhysicsImpostor(this.player, PhysicsImpostor.SphereImpostor,
-                    { mass: 1, restitution: 0.1, radius: 0.5 }, this.scene); // Specify radius for sphere
+                // Using BoxImpostor which is well supported in Cannon.js
+                this.player.physicsImpostor = new PhysicsImpostor(this.player, PhysicsImpostor.BoxImpostor,
+                    { mass: 1, restitution: 0.1, friction: 0.5 }, this.scene);
                 
-                // Check if physicsBody was successfully created
-                if (this.player.physicsImpostor.physicsBody) {
-                    // Prevent player from tipping over (less relevant for a sphere but good practice)
+                // Verify physicsBody was successfully created
+                if (this.player.physicsImpostor && this.player.physicsImpostor.physicsBody) {
+                    // Configure physics body for smooth movement
                     this.player.physicsImpostor.physicsBody.fixedRotation = true;
+                    this.player.physicsImpostor.physicsBody.material.friction = 0.1; // Reduce friction for smoother movement
+                    this.player.physicsImpostor.physicsBody.linearDamping = 0.4; // Add some damping for natural feel
                     this.player.physicsImpostor.physicsBody.updateMassProperties();
-                    console.log('Player physics enabled with SphereImpostor');
+                    console.log('✅ Player physics enabled with BoxImpostor');
+                    
+                    // Store reference to prevent disposal issues
+                    this.playerPhysicsBody = this.player.physicsImpostor.physicsBody;
                 } else {
-                    console.warn('Player physics body not created, using simple movement.');
+                    console.warn('❌ Player physics body not created, using simple movement.');
+                    this.player.physicsImpostor = null; // Clean up failed impostor
                 }
             } catch (error) {
-                console.warn('Player physics failed, using simple movement:', error);
+                console.warn('❌ Player physics failed, using simple movement:', error);
+                this.player.physicsImpostor = null; // Clean up on error
             }
-        } else {
-            console.log('Using simple movement (no physics)');
         }
     }
     
@@ -455,15 +349,12 @@ export class AdventureGame {
         // Shadows
         const shadowGenerator = new ShadowGenerator(1024, directionalLight);
         shadowGenerator.useBlurExponentialShadowMap = true;
+        
     }
     
     setupControls() {
         // Create camera with proper first-person setup
         this.camera = new FreeCamera('camera', new Vector3(0, 5, -10), this.scene);
-        console.log('[DEBUG] setupControls: NEW FreeCamera INSTANTIATED.');
-        console.log('[DEBUG] setupControls: this.camera.constructor.name:', this.camera.constructor.name);
-        console.log('[DEBUG] setupControls: typeof this.camera.setParent:', typeof this.camera.setParent);
-        console.log('[DEBUG] setupControls: typeof this.camera.attachControls:', typeof this.camera.attachControls);
 
         this.camera.setTarget(new Vector3(0, 2, 0));
         
@@ -478,8 +369,6 @@ export class AdventureGame {
         
         // Set camera as the active camera
         this.scene.activeCamera = this.camera;
-        
-        console.log('Camera setup complete');
         
         // Set up pointer lock for mouse look
         this.setupPointerLock();
@@ -499,37 +388,30 @@ export class AdventureGame {
             
             // Prevent rapid state changes (cooldown)
             if (now - this.lastPointerLockChange < 100) {
-                console.log('Pointer lock change too rapid, ignoring');
                 return;
             }
             this.lastPointerLockChange = now;
             
             if (document.pointerLockElement === this.canvas) {
-                console.log('Pointer locked - mouse look enabled');
                 this.attachCameraControls();
                 this.wasPointerLocked = true; // Track that we had pointer lock
                 this.pointerLockCooldown = false;
             } else {
-                console.log('Pointer unlocked - mouse look disabled');
                 this.detachCameraControls();
                 
                 // If we had pointer lock and game is active, treat as escape press
                 // (Browser automatically releases pointer lock on Escape)
                 if (this.wasPointerLocked && this.gameStarted && !this.isPausingGame && !this.pointerLockCooldown) {
-                    console.log('Pointer lock lost - treating as Escape press');
                     this.pointerLockCooldown = true; // Set cooldown to prevent double triggers
                     
                     // Add delay to prevent rapid toggling
                     setTimeout(() => {
                         if (this.inventoryOpen) {
                             this.toggleInventory();
-                            console.log('Closing inventory with Escape');
                         } else if (!this.gamePaused) {
                             this.pauseGame();
-                            console.log('Pausing game with Escape');
                         } else {
                             this.resumeGame();
-                            console.log('Resuming game with Escape');
                         }
                         
                         // Reset cooldown after action
@@ -544,7 +426,6 @@ export class AdventureGame {
 
         // Handle pointer lock errors
         document.addEventListener('pointerlockerror', () => {
-            console.warn('Pointer lock failed');
             this.pointerLockCooldown = true;
             // Reset cooldown after error
             setTimeout(() => {
@@ -559,9 +440,7 @@ export class AdventureGame {
                 // Since attachControls doesn't work, implement manual mouse look
                 this.setupManualMouseLook();
                 this.isControlsAttached = true;
-                console.log('Manual camera controls attached successfully');
             } catch (error) {
-                console.log('Failed to attach camera controls:', error);
             }
         }
     }
@@ -571,9 +450,7 @@ export class AdventureGame {
             try {
                 this.removeManualMouseLook();
                 this.isControlsAttached = false;
-                console.log('Camera controls detached successfully');
             } catch (error) {
-                console.log('Failed to detach camera controls:', error);
             }
         }
     }
@@ -609,8 +486,6 @@ export class AdventureGame {
         document.addEventListener('keydown', (event) => {
             if (!this.gameStarted) return;
             
-            console.log(`Key pressed: ${event.code}, game started: ${this.gameStarted}`);
-            
             // Handle Escape key for inventory/pause menu
             if (event.code === 'Escape') {
                 event.preventDefault(); // Prevent default escape behavior
@@ -623,13 +498,10 @@ export class AdventureGame {
                     this.escapeKeyPressed = false;
                     if (this.inventoryOpen) {
                         this.toggleInventory();
-                        console.log('Closing inventory with Escape');
                     } else if (!this.gamePaused) {
                         this.pauseGame();
-                        console.log('Pausing game with Escape');
                     } else {
                         this.resumeGame();
-                        console.log('Resuming game with Escape');
                     }
                 }
                 
@@ -642,32 +514,23 @@ export class AdventureGame {
             // Check against current keybinds
             if (event.code === this.keybinds.forward) {
                 this.keys.forward = true;
-                console.log('Moving forward');
             } else if (event.code === this.keybinds.backward) {
                 this.keys.backward = true;
-                console.log('Moving backward');
             } else if (event.code === this.keybinds.left) {
                 this.keys.left = true;
-                console.log('Moving left');
             } else if (event.code === this.keybinds.right) {
                 this.keys.right = true;
-                console.log('Moving right');
             } else if (event.code === this.keybinds.interact) {
                 this.interact();
-                console.log('Interacting');
             } else if (event.code === this.keybinds.jump) {
                 this.keys.jump = true;
                 this.jump();
-                console.log('Jumping');
             } else if (event.code === this.keybinds.inventory) {
                 this.toggleInventory();
-                console.log('Toggling inventory');
             } else if (event.code === this.keybinds.run) {
                 this.keys.run = true;
-                console.log('Running');
             } else if (event.code === 'ControlLeft' || event.code === 'ControlRight') {
                 this.keys.crouch = true;
-                console.log('Crouching');
             }
         });
         
@@ -691,9 +554,6 @@ export class AdventureGame {
                 this.keys.crouch = false;
             }
         });
-        
-        console.log('Keyboard controls setup complete');
-        console.log('Current keybinds:', this.keybinds);
     }
     
     setupUI() {
@@ -705,7 +565,6 @@ export class AdventureGame {
         // Canvas click to start game
         this.canvas.addEventListener('click', () => {
             if (!this.gameStarted) {
-                console.log('Canvas clicked - starting game...');
                 this.startGame();
             }
         });
@@ -717,102 +576,47 @@ export class AdventureGame {
         document.getElementById('gameHUD').classList.remove('hidden');
 
         // Position camera for first-person view
-        console.log('[DEBUG] startGame: About to parent camera. this.camera is:', this.camera);
-        if (this.camera) {
-            console.log('[DEBUG] startGame: this.camera.constructor:', this.camera.constructor);
-            console.log('[DEBUG] startGame: this.camera.constructor.name:', this.camera.constructor ? this.camera.constructor.name : 'N/A');
-            console.log('[DEBUG] startGame: typeof this.camera.setParent:', typeof this.camera.setParent);
-            console.log('[DEBUG] startGame: this.camera.hasOwnProperty(\'setParent\'):', this.camera.hasOwnProperty('setParent'));
-
-            let proto = Object.getPrototypeOf(this.camera);
-            if (proto) {
-                 console.log('[DEBUG] startGame: Object.getPrototypeOf(this.camera).hasOwnProperty(\'setParent\'):', proto.hasOwnProperty('setParent'));
-                 if (typeof BABYLON !== 'undefined' && BABYLON.FreeCamera && BABYLON.FreeCamera.prototype) {
-                    console.log('[DEBUG] startGame: BABYLON.FreeCamera.prototype.hasOwnProperty(\'setParent\'):', BABYLON.FreeCamera.prototype.hasOwnProperty('setParent'));
-                    // Check if proto is actually FreeCamera.prototype or Node.prototype etc.
-                    let pChain = proto;
-                    let foundOnChain = false;
-                    let levels = 0;
-                    while(pChain && levels < 5){
-                        if(pChain.hasOwnProperty('setParent')) foundOnChain = true;
-                        if(pChain === BABYLON.FreeCamera.prototype) console.log('[DEBUG] startGame: Object.getPrototypeOf(this.camera) IS BABYLON.FreeCamera.prototype (at level '+levels+')');
-                        if(pChain === BABYLON.Node.prototype) console.log('[DEBUG] startGame: Object.getPrototypeOf(this.camera) IS BABYLON.Node.prototype (at level '+levels+')');
-                        pChain = Object.getPrototypeOf(pChain);
-                        levels++;
-                    }
-                    console.log('[DEBUG] startGame: setParent found on prototype chain of this.camera:', foundOnChain);
-
-                 } else {
-                     console.log('[DEBUG] startGame: BABYLON.FreeCamera or its prototype not available for deeper check.');
-                 }
-            }
+        if (this.camera && this.player) {
+            // Position camera relative to player position (first-person view)
+            this.camera.position = new Vector3(
+                this.player.position.x, 
+                this.player.position.y + 1.6, // Eye level above player
+                this.player.position.z
+            );
             
-            // Prototype chain logging (simplified from before, as above checks are more targeted)
-            proto = Object.getPrototypeOf(this.camera);
-            let i = 0;
-            while(proto && i < 3) { // Shortened for brevity
-                console.log(`[DEBUG] startGame: Proto level ${i} constructor:`, proto.constructor ? proto.constructor.name : 'N/A');
-                i++;
-                proto = Object.getPrototypeOf(proto);
-            }
-            
-            try {
-                if (typeof BABYLON !== 'undefined' && BABYLON.FreeCamera) {
-                    console.log('[DEBUG] startGame: this.camera instanceof BABYLON.FreeCamera:', this.camera instanceof BABYLON.FreeCamera);
-                } else {
-                    console.log('[DEBUG] startGame: BABYLON.FreeCamera not available for instanceof check.');
-                }
-             } catch (e) {
-                console.log('[DEBUG] startGame: Error checking instanceof BABYLON.FreeCamera:', e);
-             }
-        } else {
-            console.log('[DEBUG] startGame: this.camera is null or undefined before setParent!');
+            // Set initial camera target (look forward from player position)
+            const lookTarget = new Vector3(
+                this.player.position.x,
+                this.player.position.y + 1.6,
+                this.player.position.z + 5 // Look 5 units forward
+            );
+            this.camera.setTarget(lookTarget);
+
+            // Attach camera controls to canvas
+            this.attachCameraControls();
         }
-        console.log('[DEBUG] startGame: this.player is:', this.player);
 
-        // Instead of using setParent (which doesn't work), manually position camera relative to player
-        console.log('[DEBUG] startGame: Setting up camera positioning without setParent');
-        
-        // Set initial camera position relative to player
-        this.camera.position = new Vector3(
-            this.player.position.x,
-            this.player.position.y + 1.6, // Eye height above player
-            this.player.position.z
-        );
-        this.camera.rotation = new Vector3(0, 0, 0);
-
-        // Apply camera settings from menu
-        this.applyCameraSettings();
-
-        // Auto-request pointer lock for immediate mouse control
-        setTimeout(() => {
-            this.canvas.requestPointerLock();
-        }, 100);
-
-        console.log('Game started successfully! Click to enable mouse look.');
+        // Lock pointer to canvas for mouse look
+        this.canvas.requestPointerLock = this.canvas.requestPointerLock || this.canvas.mozRequestPointerLock || this.canvas.webkitRequestPointerLock;
+        this.canvas.requestPointerLock();
     }
     
     applyCameraSettings() {
         if (this.camera) {
-            console.log('[DEBUG] applyCameraSettings START - Camera type:', this.camera.constructor.name, 'Is player:', this.camera === this.player);
-
-            console.log('[DEBUG] applyCameraSettings: Current sensitivity setting:', this.cameraSettings.sensitivity);
-            console.log('[DEBUG] applyCameraSettings: Before angularSensibility - typeof this.camera.setParent:', typeof this.camera.setParent, 'Is player:', this.camera === this.player);
+            // Apply angular sensitivity
             this.camera.angularSensibility = 2000 / this.cameraSettings.sensitivity;
-            console.log('[DEBUG] applyCameraSettings: After angularSensibility - typeof this.camera.setParent:', typeof this.camera.setParent, 'Is player:', this.camera === this.player, 'Constructor:', this.camera.constructor.name);
 
-            console.log('[DEBUG] applyCameraSettings: Current speed setting:', this.cameraSettings.speed);
-            console.log('[DEBUG] applyCameraSettings: Before speed - typeof this.camera.setParent:', typeof this.camera.setParent, 'Is player:', this.camera === this.player);
-            // this.camera.speed = this.cameraSettings.speed; // <--- PROBLEMATIC LINE COMMENTED OUT
-            console.log('[DEBUG] applyCameraSettings: SKIPPED assigning this.camera.speed');
-            console.log('[DEBUG] applyCameraSettings: After skipping speed - typeof this.camera.setParent:', typeof this.camera.setParent, 'Is player:', this.camera === this.player, 'Constructor:', this.camera.constructor.name);
+            // Apply camera movement speed (for manual movement, not physics)
+            this.camera.speed = this.cameraSettings.speed;
 
-            console.log('[DEBUG] applyCameraSettings: Current smoothing setting:', this.cameraSettings.smoothing);
-            console.log('[DEBUG] applyCameraSettings: Before inertia - typeof this.camera.setParent:', typeof this.camera.setParent, 'Is player:', this.camera === this.player);
-            this.camera.inertia = this.cameraSettings.smoothing ? 0.9 : 0;
-            console.log('[DEBUG] applyCameraSettings: After inertia - typeof this.camera.setParent:', typeof this.camera.setParent, 'Is player:', this.camera === this.player, 'Constructor:', this.camera.constructor.name);
+            // Disable camera inertia to prevent "rails" feeling
+            this.camera.inertia = 0;
             
-            console.log('Camera settings applied (end of applyCameraSettings):', this.cameraSettings);
+            console.log('Camera settings applied successfully:', {
+                sensitivity: this.cameraSettings.sensitivity,
+                speed: this.cameraSettings.speed,
+                smoothing: this.cameraSettings.smoothing
+            });
         } else {
             console.log('[DEBUG] applyCameraSettings: No camera to apply settings to.');
         }
@@ -828,20 +632,20 @@ export class AdventureGame {
         this.cameraAnimation.isRunning = this.cameraAnimation.isMoving && this.keys.run;
         this.cameraAnimation.isCrouching = this.keys.crouch;
         
-        // Debug movement state every few seconds
-        if (Math.floor(Date.now() / 1000) % 3 === 0 && this.cameraAnimation.isMoving) {
-            console.log(`Movement state - Moving: ${this.cameraAnimation.isMoving}, Running: ${this.cameraAnimation.isRunning}, HeadBob: ${this.cameraSettings.headBobEnabled}`);
-        }
+        // Debug movement state (reduced logging)
+        // if (Math.floor(Date.now() / 1000) % 3 === 0 && this.cameraAnimation.isMoving) {
+        //     console.log(`Movement state - Moving: ${this.cameraAnimation.isMoving}, Running: ${this.cameraAnimation.isRunning}, HeadBob: ${this.cameraSettings.headBobEnabled}`);
+        // }
         
         // Head bob calculation
         if (this.cameraSettings.headBobEnabled && this.cameraAnimation.isMoving) {
             let bobSpeed = this.cameraSettings.walkingBobSpeed;
             let bobIntensity = this.cameraSettings.headBobIntensity;
             
-            // Debug logging for head bob
-            if (Math.floor(this.cameraAnimation.bobTimer * 10) % 50 === 0) {
-                console.log(`Head bob active - Speed: ${bobSpeed}, Intensity: ${bobIntensity}, Timer: ${this.cameraAnimation.bobTimer.toFixed(2)}`);
-            }
+            // Debug logging for head bob (reduced)
+            // if (Math.floor(this.cameraAnimation.bobTimer * 10) % 50 === 0) {
+            //     console.log(`Head bob active - Speed: ${bobSpeed}, Intensity: ${bobIntensity}, Timer: ${this.cameraAnimation.bobTimer.toFixed(2)}`);
+            // }
             
             // Adjust for running
             if (this.cameraAnimation.isRunning) {
@@ -862,16 +666,24 @@ export class AdventureGame {
             const bobOffset = Math.sin(this.cameraAnimation.bobTimer) * bobIntensity * 0.3; // Increased multiplier
             const bobSideOffset = Math.sin(this.cameraAnimation.bobTimer * 0.5) * bobIntensity * 0.15; // Increased multiplier
             
-            // Apply bob to camera position
-            this.camera.position.y = this.player.position.y + 1.6 + bobOffset + (this.cameraAnimation.isCrouching ? -0.5 : 0);
-            this.camera.position.x = this.player.position.x + bobSideOffset;
+            // Apply bob to camera position with smooth following
+            const targetY = this.player.position.y + 1.6 + bobOffset + (this.cameraAnimation.isCrouching ? -0.5 : 0);
+            const targetX = this.player.position.x + bobSideOffset;
+            
+            // Smooth camera following instead of rigid locking
+            this.camera.position.y = this.camera.position.y + (targetY - this.camera.position.y) * deltaTime * 10;
+            this.camera.position.x = this.camera.position.x + (targetX - this.camera.position.x) * deltaTime * 10;
         } else {
             // Reset bob timer when not moving
             this.cameraAnimation.bobTimer = 0;
             
             // Smooth return to normal position
-            this.camera.position.y = this.player.position.y + 1.6 + (this.cameraAnimation.isCrouching ? -0.5 : 0);
-            this.camera.position.x = this.player.position.x;
+            const targetY = this.player.position.y + 1.6 + (this.cameraAnimation.isCrouching ? -0.5 : 0);
+            const targetX = this.player.position.x;
+            
+            // Smooth camera following
+            this.camera.position.y = this.camera.position.y + (targetY - this.camera.position.y) * deltaTime * 8;
+            this.camera.position.x = this.camera.position.x + (targetX - this.camera.position.x) * deltaTime * 8;
         }
         
         // Movement tilt calculation
@@ -894,75 +706,96 @@ export class AdventureGame {
             this.camera.rotation.z = 0;
         }
         
-        // Ensure camera Z position matches player
-        this.camera.position.z = this.player.position.z;
+        // Smooth Z position following instead of rigid locking
+        const targetZ = this.player.position.z;
+        this.camera.position.z = this.camera.position.z + (targetZ - this.camera.position.z) * deltaTime * 10;
     }
     
     update() {
         if (!this.player || !this.gameStarted || this.gamePaused) return;
 
-        let moveSpeed = 8; // Base movement speed
+        let moveSpeed = 40; // Base movement speed (5x faster than original 8)
         
         // Increase speed if running
         if (this.keys.run) {
-            moveSpeed *= 2.5; // 2.5x faster when running
+            moveSpeed *= 2.0; // 2x faster when running (was 2.5x, now 2x for better control)
         }
         
         // Decrease speed if crouching
         if (this.keys.crouch) {
-            moveSpeed *= 0.5; // 50% slower when crouching
+            moveSpeed *= 0.3; // 30% speed when crouching (slower for stealth)
         }
         
         const movement = new Vector3(0, 0, 0);
         
-        // Calculate movement based on camera direction (only Y rotation, ignore X rotation)
-        const cameraRotationY = this.camera.rotation.y;
-        const forward = new Vector3(Math.sin(cameraRotationY), 0, Math.cos(cameraRotationY));
-        const right = new Vector3(Math.cos(cameraRotationY), 0, -Math.sin(cameraRotationY));
+        // Calculate movement direction directly from camera's Y rotation only
+        // This ensures perfect alignment with where the camera is looking
+        const cameraYRotation = this.camera.rotation.y;
         
-        // Build movement vector based on input
-        if (this.keys.forward) {
-            movement.addInPlace(forward.scale(moveSpeed));
-        }
-        if (this.keys.backward) {
-            movement.addInPlace(forward.scale(-moveSpeed));
-        }
-        if (this.keys.left) {
-            movement.addInPlace(right.scale(-moveSpeed));
-        }
-        if (this.keys.right) {
-            movement.addInPlace(right.scale(moveSpeed));
-        }
+        // Calculate forward and right vectors using camera's Y rotation
+        const forward = new Vector3(
+            Math.sin(cameraYRotation),
+            0,
+            Math.cos(cameraYRotation)
+        );
         
-        // Debug movement
-        if (movement.length() > 0) {
-            console.log(`Movement vector: ${movement.x.toFixed(2)}, ${movement.y.toFixed(2)}, ${movement.z.toFixed(2)}`);
-        }
+        const right = new Vector3(
+            Math.cos(cameraYRotation),
+            0,
+            -Math.sin(cameraYRotation)
+        );
         
-        // Apply movement
-        if (this.player.physicsImpostor) {
-            // Physics-based movement - preserve Y velocity for proper gravity
-            const currentVelocity = this.player.physicsImpostor.getLinearVelocity();
+        // Build movement vector with normalized diagonal movement
+        let forwardInput = 0;
+        let rightInput = 0;
+        
+        if (this.keys.forward) forwardInput += 1;
+        if (this.keys.backward) forwardInput -= 1;
+        if (this.keys.right) rightInput += 1;
+        if (this.keys.left) rightInput -= 1;
+        
+        // Create movement vector and normalize for consistent speed in all directions
+        if (forwardInput !== 0 || rightInput !== 0) {
+            movement.addInPlace(forward.scale(forwardInput));
+            movement.addInPlace(right.scale(rightInput));
             
-            if (movement.length() > 0) {
-                // Apply horizontal movement while preserving vertical velocity
-                this.player.physicsImpostor.setLinearVelocity(new Vector3(movement.x, currentVelocity.y, movement.z));
-                console.log(`Applied physics movement: ${movement.x}, ${currentVelocity.y}, ${movement.z}`);
-            } else {
-                // Stop horizontal movement when no input, but preserve vertical velocity
-                this.player.physicsImpostor.setLinearVelocity(new Vector3(0, currentVelocity.y, 0));
+            // Normalize to prevent faster diagonal movement
+            movement.normalize();
+            movement.scaleInPlace(moveSpeed);
+        }
+        
+        // Debug movement and speed (with direction info)
+        if (movement.length() > 0 && Math.random() < 0.02) { // Only log 2% of the time
+            const speedState = this.keys.run ? 'RUNNING' : this.keys.crouch ? 'CROUCHING' : 'WALKING';
+            console.log(`${speedState} - Forward: (${forward.x.toFixed(2)}, ${forward.z.toFixed(2)}), Movement: (${movement.x.toFixed(1)}, ${movement.z.toFixed(1)})`);
+        }
+        
+        // Apply movement - using direct position manipulation for smooth, responsive movement
+        if (movement.length() > 0) {
+            const deltaTime = this.engine.getDeltaTime() / 1000;
+            
+            // Apply movement directly to position for immediate response
+            const moveVector = movement.scale(deltaTime);
+            this.player.position.addInPlace(moveVector);
+            
+            // Keep player above ground
+            if (this.player.position.y < 1) {
+                this.player.position.y = 1;
             }
-        } else {
-            // Simple movement fallback
-            if (movement.length() > 0) {
-                movement.y = 0; // No vertical movement from input
-                const deltaTime = this.engine.getDeltaTime() / 1000;
-                this.player.position.addInPlace(movement.scale(deltaTime));
-                console.log(`Applied simple movement: ${movement.x}, ${movement.y}, ${movement.z}`);
-                
-                // Keep player above ground
-                if (this.player.position.y < 1) {
-                    this.player.position.y = 1;
+            
+            // Update physics body position if it exists (for collision detection)
+            if (this.player.physicsImpostor && this.player.physicsImpostor.physicsBody) {
+                try {
+                    // Sync physics body with player position
+                    this.player.physicsImpostor.physicsBody.position.set(
+                        this.player.position.x,
+                        this.player.position.y,
+                        this.player.position.z
+                    );
+                    // Reset velocity to prevent physics interference
+                    this.player.physicsImpostor.physicsBody.velocity.set(0, 0, 0);
+                } catch (error) {
+                    console.warn('Physics sync error:', error);
                 }
             }
         }
@@ -1196,18 +1029,25 @@ export class AdventureGame {
     jump() {
         if (!this.player) return;
         
-        if (this.player.physicsImpostor) {
-            // Physics-based jump with proper ground detection
-            const velocity = this.player.physicsImpostor.getLinearVelocity();
-            
-            // Check if player is on or near the ground (allow small tolerance for physics)
-            const isOnGround = Math.abs(velocity.y) < 1.0 && this.player.position.y < 2.0;
-            
-            if (isOnGround) {
-                // Apply jump force while preserving horizontal movement
-                const jumpForce = 10; // Adjust for desired jump height
-                this.player.physicsImpostor.setLinearVelocity(new Vector3(velocity.x, jumpForce, velocity.z));
-                console.log('Jump! 🦘');
+        if (this.player.physicsImpostor && this.player.physicsImpostor.physicsBody && this.playerPhysicsBody) {
+            try {
+                // Physics-based jump with proper ground detection
+                const velocity = this.player.physicsImpostor.getLinearVelocity();
+                
+                // Check if player is on or near the ground (allow small tolerance for physics)
+                const isOnGround = Math.abs(velocity.y) < 1.0 && this.player.position.y < 2.0;
+                
+                if (isOnGround) {
+                    // Apply jump force while preserving horizontal movement
+                    const jumpForce = 10; // Adjust for desired jump height
+                    this.player.physicsImpostor.setLinearVelocity(new Vector3(velocity.x, jumpForce, velocity.z));
+                    console.log('Jump! 🦘');
+                }
+            } catch (error) {
+                console.warn('Physics jump error, falling back to simple jump:', error);
+                // Fall back to simple jump if physics fails
+                this.player.physicsImpostor = null;
+                this.playerPhysicsBody = null;
             }
         } else {
             // Simple jump without physics
