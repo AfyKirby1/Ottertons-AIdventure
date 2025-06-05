@@ -9,7 +9,7 @@ export class CameraController {
         
         // Camera settings
         this.settings = {
-            sensitivity: 150,
+            sensitivity: 200,
             invertY: false,
             smoothing: true,
             speed: 1.0,
@@ -54,49 +54,70 @@ export class CameraController {
         // Set as active camera
         this.scene.activeCamera = this.camera;
         
-        // Set up manual mouse look
+        // Set up manual mouse look immediately
         this.setupMouseLook();
+        
+        // Attach controls immediately - don't wait for pointer lock
+        this.attachControls();
     }
     
     setupMouseLook() {
         this.mouseLookHandler = (event) => {
             if (!this.isControlsAttached) return;
             
-            // Direct, immediate mouse look - no deltaTime needed
-            const sensitivity = this.settings.sensitivity / 1000;
+            // Fixed sensitivity calculation - proper range for responsiveness
+            // Convert the 100-500 range to a proper sensitivity (0.0005 to 0.002)
+            const sensitivity = (this.settings.sensitivity / 200) * 0.001; // More responsive base sensitivity
             
-            // Apply rotation immediately
-            this.camera.rotation.y += event.movementX * sensitivity;
-            this.camera.rotation.x += (this.settings.invertY ? event.movementY : -event.movementY) * sensitivity;
+            // Calculate new rotations with improved responsiveness
+            const deltaX = event.movementX * sensitivity;
+            const deltaY = (this.settings.invertY ? event.movementY : -event.movementY) * sensitivity;
             
-            // Clamp vertical rotation
+            // Apply rotation immediately with no smoothing for responsiveness
+            this.camera.rotation.y += deltaX;
+            this.camera.rotation.x += deltaY;
+            
+            // Clamp vertical rotation to prevent over-rotation
             this.camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, this.camera.rotation.x));
+            
+            // Force immediate matrix update for instant response
+            this.camera.computeWorldMatrix(true);
         };
         
+        // Add event listener immediately
         this.canvas.addEventListener('mousemove', this.mouseLookHandler);
     }
     
     attachControls() {
         this.isControlsAttached = true;
+        console.log('Camera controls attached - mouse look enabled');
     }
     
     detachControls() {
         this.isControlsAttached = false;
+        console.log('Camera controls detached - mouse look disabled');
     }
     
     getMovementDirections() {
-        // Get exact forward and right directions from camera
-        const cameraMatrix = this.camera.getWorldMatrix();
+        // Create rotation matrix from camera's Y rotation only
+        const rotationMatrix = BABYLON.Matrix.RotationY(this.camera.rotation.y);
         
-        const forward = Vector3.TransformNormal(Vector3.Forward(), cameraMatrix).normalize();
-        forward.y = 0; // Keep horizontal
-        forward.normalize();
+        // Get base vectors
+        const forward = new Vector3(0, 0, 1);
+        const right = new Vector3(1, 0, 0);
         
-        const right = Vector3.TransformNormal(Vector3.Right(), cameraMatrix).normalize();
-        right.y = 0; // Keep horizontal
-        right.normalize();
+        // Transform vectors by rotation matrix
+        const transformedForward = Vector3.TransformNormal(forward, rotationMatrix);
+        const transformedRight = Vector3.TransformNormal(right, rotationMatrix);
         
-        return { forward, right };
+        // Ensure vectors are normalized
+        transformedForward.normalize();
+        transformedRight.normalize();
+        
+        return { 
+            forward: transformedForward, 
+            right: transformedRight 
+        };
     }
     
     update(deltaTime, movementState) {

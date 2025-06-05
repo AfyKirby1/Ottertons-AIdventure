@@ -63,6 +63,16 @@ window.saveSettings = () => {
     menuSystem.saveSettings();
 };
 
+window.applySettings = () => {
+    const menuSystem = initMenuSystem();
+    menuSystem.applySettings();
+};
+
+window.goBackFromSettings = () => {
+    const menuSystem = initMenuSystem();
+    menuSystem.goBackFromSettings();
+};
+
 window.recordKeybind = (action, button) => {
     const menuSystem = initMenuSystem();
     menuSystem.recordKeybind(action, button);
@@ -146,6 +156,52 @@ window.updateDepthOfFieldIntensity = (value) => {
     menuSystem.updateDepthOfFieldIntensity(value);
 };
 
+// World Generation Settings
+window.updateWorldSeed = (value) => {
+    const menuSystem = initMenuSystem();
+    menuSystem.updateWorldSeed(value);
+};
+
+window.updateTerrainSize = (value) => {
+    const menuSystem = initMenuSystem();
+    menuSystem.updateTerrainSize(value);
+};
+
+window.updateHeightVariation = (value) => {
+    const menuSystem = initMenuSystem();
+    menuSystem.updateHeightVariation(value);
+};
+
+window.updateTreeCount = (value) => {
+    const menuSystem = initMenuSystem();
+    menuSystem.updateTreeCount(value);
+};
+
+window.updateTreasureCount = (value) => {
+    const menuSystem = initMenuSystem();
+    menuSystem.updateTreasureCount(value);
+};
+
+window.updateCrystalCount = (value) => {
+    const menuSystem = initMenuSystem();
+    menuSystem.updateCrystalCount(value);
+};
+
+window.updateTextureDetail = (value) => {
+    const menuSystem = initMenuSystem();
+    menuSystem.updateTextureDetail(value);
+};
+
+window.randomizeWorld = () => {
+    const menuSystem = initMenuSystem();
+    menuSystem.randomizeWorld();
+};
+
+window.resetWorldDefaults = () => {
+    const menuSystem = initMenuSystem();
+    menuSystem.resetWorldDefaults();
+};
+
 // Pause Menu Functions
 window.resumeGame = () => {
     if (game) {
@@ -164,14 +220,32 @@ window.quitToMainMenu = () => {
         game.gamePaused = false;
         game.gameStarted = false;
         
-        // Hide pause menu and show main menu
+        // Resume animations before quitting
+        game.scene.animationGroups.forEach(animGroup => {
+            animGroup.play();
+        });
+        
+        // Resume physics if available
+        if (game.scene.isPhysicsEnabled() && game.scene.getPhysicsEngine()) {
+            game.scene.getPhysicsEngine().setTimeStep(1/60);
+        }
+        
+        // Hide all menu sections first
+        const mainMenu = document.getElementById('mainMenu');
         const pauseMenu = document.getElementById('pauseMenuSection');
+        const settingsSection = document.getElementById('settingsSection');
+        const loadGameSection = document.getElementById('loadGameSection');
         const mainMenuSection = document.getElementById('mainMenuSection');
         
         if (pauseMenu) pauseMenu.classList.add('hidden');
+        if (settingsSection) settingsSection.classList.add('hidden');
+        if (loadGameSection) loadGameSection.classList.add('hidden');
+        if (mainMenu) mainMenu.classList.remove('pause-mode');
+        
+        // Show main menu section
         if (mainMenuSection) mainMenuSection.classList.remove('hidden');
         
-        // Reset UI
+        // Reset UI to title screen
         document.getElementById('gameHUD').classList.add('hidden');
         document.getElementById('gameTitle').classList.remove('hidden');
         

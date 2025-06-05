@@ -6,23 +6,31 @@ export class MenuSystem {
         this.settings = {
             graphics: 'medium',
             fov: 75,
-            sensitivity: 1.0,
-            masterVolume: 100,
-            musicVolume: 80,
-            sfxVolume: 90,
+            sensitivity: 200,
+            masterVolume: 0.7,
+            musicVolume: 0.5,
+            sfxVolume: 0.8,
             invertMouseY: false,
             cameraSpeed: 1.0,
             zoomSpeed: 1.0,
             smoothCamera: true,
             // Head bob settings
             headBobEnabled: true,
-            headBobIntensity: 0.5,
+            headBobIntensity: 0.3,
             // Movement tilt settings
             movementTiltEnabled: true,
-            movementTiltIntensity: 0.5,
+            movementTiltIntensity: 1.0,
             // Depth of field settings
             depthOfFieldEnabled: false,
-            depthOfFieldIntensity: 1.0,
+            depthOfFieldIntensity: 0.5,
+            // World generation settings
+            worldSeed: null, // null means random
+            terrainSize: 100,
+            heightVariation: 3.0,
+            treeCount: 25,
+            treasureCount: 6,
+            crystalCount: 10,
+            textureDetail: 512,
             keybinds: {
                 forward: 'KeyW',
                 backward: 'KeyS',
@@ -78,52 +86,37 @@ export class MenuSystem {
     }
     
     showSettingsTab(tabName) {
-        console.log(`Switching to settings tab: ${tabName}`);
+        // Hide all panels
+        const panels = ['graphics', 'audio', 'controls', 'camera', 'world', 'keybinds'];
+        panels.forEach(panel => {
+            const element = document.getElementById(panel + 'Settings');
+            if (element) {
+                element.classList.remove('active');
+                element.style.display = 'none';
+            }
+        });
         
-        // Update tab buttons
-        const tabs = document.querySelectorAll('.settings-tab');
-        tabs.forEach(tab => {
+        // Remove active class from all tabs
+        document.querySelectorAll('.settings-tab').forEach(tab => {
             tab.classList.remove('active');
         });
         
-        const activeTab = document.querySelector(`[onclick="showSettingsTab('${tabName}')"]`);
-        if (activeTab) {
-            activeTab.classList.add('active');
-            console.log(`Tab button activated: ${tabName}`);
+        // Show selected panel
+        const selectedPanel = document.getElementById(tabName + 'Settings');
+        if (selectedPanel) {
+            selectedPanel.classList.add('active');
+            selectedPanel.style.display = 'block';
         }
         
-        // Update panels
-        const panels = document.querySelectorAll('.settings-panel');
-        panels.forEach(panel => {
-            panel.classList.remove('active');
-            panel.style.display = 'none';
+        // Add active class to the clicked tab
+        // Find the tab that was clicked by matching the onclick attribute
+        document.querySelectorAll('.settings-tab').forEach(tab => {
+            if (tab.onclick && tab.onclick.toString().includes(`'${tabName}'`)) {
+                tab.classList.add('active');
+            }
         });
         
-        const activePanel = document.getElementById(tabName + 'Settings');
-        if (activePanel) {
-            activePanel.classList.add('active');
-            activePanel.style.display = 'block';
-            activePanel.style.visibility = 'visible';
-            console.log(`Panel activated: ${tabName}Settings`);
-            
-            // Special handling for keybinds tab
-            if (tabName === 'keybind') {
-                console.log('Keybind panel activated, checking content...');
-                const keybindItems = activePanel.querySelectorAll('.keybind-item');
-                console.log(`Found ${keybindItems.length} keybind items`);
-                
-                // Force visibility of keybind items
-                keybindItems.forEach((item, index) => {
-                    item.style.display = 'flex';
-                    item.style.visibility = 'visible';
-                    console.log(`Keybind item ${index} made visible`);
-                });
-            }
-        } else {
-            console.warn(`Could not find panel: ${tabName}Settings`);
-        }
-        
-        this.currentSettingsTab = tabName;
+        console.log(`Switched to ${tabName} settings tab`);
     }
     
     startNewGame() {
@@ -186,14 +179,18 @@ export class MenuSystem {
     }
     
     showSettings() {
-        this.showSection('settings');
-        this.showSettingsTab('keybind'); // Start with keybind tab for debugging
+        this.hideAllSections();
+        document.getElementById('settingsSection').classList.remove('hidden');
         
-        // Force update the UI after showing settings
-        setTimeout(() => {
-            console.log('Settings shown, updating UI...');
-            this.applySettingsToUI();
-        }, 200);
+        // Initialize default tab when showing settings
+        this.initializeSettingsTabs();
+        
+        console.log('Settings shown');
+    }
+    
+    initializeSettingsTabs() {
+        // Make sure graphics tab is shown by default
+        this.showSettingsTab('graphics');
     }
     
     showMainMenu() {
@@ -222,25 +219,25 @@ export class MenuSystem {
     }
     
     updateMasterVolume(value) {
-        this.settings.masterVolume = parseInt(value);
-        document.getElementById('masterVolumeValue').textContent = value + '%';
+        this.settings.masterVolume = parseFloat(value);
+        document.getElementById('masterVolumeValue').textContent = value * 100 + '%';
         
         // Apply audio changes here
-        console.log('Master volume set to:', value + '%');
+        console.log('Master volume set to:', value * 100 + '%');
     }
     
     updateMusicVolume(value) {
-        this.settings.musicVolume = parseInt(value);
-        document.getElementById('musicVolumeValue').textContent = value + '%';
+        this.settings.musicVolume = parseFloat(value);
+        document.getElementById('musicVolumeValue').textContent = value * 100 + '%';
         
         // Apply music volume changes here
-        console.log('Music volume set to:', value + '%');
+        console.log('Music volume set to:', value * 100 + '%');
     }
     
-        updateSFXVolume(value) {
-        this.settings.sfxVolume = parseInt(value);
-        document.getElementById('sfxVolumeValue').textContent = value + '%';
-        console.log('SFX volume set to:', value + '%');
+    updateSFXVolume(value) {
+        this.settings.sfxVolume = parseFloat(value);
+        document.getElementById('sfxVolumeValue').textContent = value * 100 + '%';
+        console.log('SFX volume set to:', value * 100 + '%');
     }
 
     updateInvertMouseY(checked) {
@@ -430,10 +427,26 @@ export class MenuSystem {
         const saved = localStorage.getItem('adventureGameSettings');
         if (saved) {
             try {
-                this.settings = { ...this.settings, ...JSON.parse(saved) };
+                const loadedSettings = JSON.parse(saved);
+                
+                // Validate and fix any corrupted settings
+                if (typeof loadedSettings.sensitivity !== 'number' || loadedSettings.sensitivity < 100 || loadedSettings.sensitivity > 500) {
+                    console.warn('Invalid sensitivity value, resetting to default');
+                    loadedSettings.sensitivity = 200;
+                }
+                if (typeof loadedSettings.masterVolume !== 'number' || loadedSettings.masterVolume < 0 || loadedSettings.masterVolume > 1) {
+                    console.warn('Invalid volume value, resetting to default');
+                    loadedSettings.masterVolume = 0.7;
+                    loadedSettings.musicVolume = 0.5;
+                    loadedSettings.sfxVolume = 0.8;
+                }
+                
+                this.settings = { ...this.settings, ...loadedSettings };
                 this.applySettingsToUI();
             } catch (error) {
                 console.warn('Failed to load settings:', error);
+                // Reset to defaults on error
+                localStorage.removeItem('adventureGameSettings');
             }
         }
     }
@@ -450,6 +463,7 @@ export class MenuSystem {
         document.getElementById('cameraSpeedSlider').value = this.settings.cameraSpeed;
         document.getElementById('zoomSpeedSlider').value = this.settings.zoomSpeed;
         document.getElementById('smoothCamera').checked = this.settings.smoothCamera;
+        
         // New camera settings with error handling
         const headBobEnabledEl = document.getElementById('headBobEnabled');
         const headBobIntensitySliderEl = document.getElementById('headBobIntensitySlider');
@@ -465,30 +479,59 @@ export class MenuSystem {
         if (depthOfFieldEnabledEl) depthOfFieldEnabledEl.checked = this.settings.depthOfFieldEnabled;
         if (depthOfFieldIntensitySliderEl) depthOfFieldIntensitySliderEl.value = this.settings.depthOfFieldIntensity;
         
-        // Update display values
-        this.updateFOV(this.settings.fov);
-        this.updateSensitivity(this.settings.sensitivity);
-        this.updateMasterVolume(this.settings.masterVolume);
-        this.updateMusicVolume(this.settings.musicVolume);
-        this.updateSFXVolume(this.settings.sfxVolume);
-        this.updateCameraSpeed(this.settings.cameraSpeed);
-        this.updateZoomSpeed(this.settings.zoomSpeed);
-        this.updateHeadBobIntensity(this.settings.headBobIntensity);
-        this.updateMovementTiltIntensity(this.settings.movementTiltIntensity);
-        this.updateDepthOfFieldIntensity(this.settings.depthOfFieldIntensity);
+        // World generation settings
+        const worldSeedEl = document.getElementById('worldSeed');
+        const terrainSizeSliderEl = document.getElementById('terrainSizeSlider');
+        const heightVariationSliderEl = document.getElementById('heightVariationSlider');
+        const treeCountSliderEl = document.getElementById('treeCountSlider');
+        const treasureCountSliderEl = document.getElementById('treasureCountSlider');
+        const crystalCountSliderEl = document.getElementById('crystalCountSlider');
+        const textureDetailSliderEl = document.getElementById('textureDetailSlider');
         
-        // Update keybind buttons with better error handling
-        console.log('Updating keybind buttons with settings:', this.settings.keybinds);
-        Object.entries(this.settings.keybinds).forEach(([action, keyCode]) => {
-            const button = document.querySelector(`[onclick="recordKeybind('${action}', this)"]`);
-            if (button) {
-                const displayName = this.getKeyDisplayName(keyCode);
-                button.textContent = displayName;
-                console.log(`Set ${action} button to: ${displayName}`);
-            } else {
-                console.warn(`Could not find keybind button for action: ${action}`);
-            }
-        });
+        if (worldSeedEl) worldSeedEl.value = this.settings.worldSeed || '';
+        if (terrainSizeSliderEl) {
+            terrainSizeSliderEl.value = this.settings.terrainSize;
+            document.getElementById('terrainSizeValue').textContent = this.settings.terrainSize;
+        }
+        if (heightVariationSliderEl) {
+            heightVariationSliderEl.value = this.settings.heightVariation;
+            document.getElementById('heightVariationValue').textContent = this.settings.heightVariation;
+        }
+        if (treeCountSliderEl) {
+            treeCountSliderEl.value = this.settings.treeCount;
+            document.getElementById('treeCountValue').textContent = this.settings.treeCount;
+        }
+        if (treasureCountSliderEl) {
+            treasureCountSliderEl.value = this.settings.treasureCount;
+            document.getElementById('treasureCountValue').textContent = this.settings.treasureCount;
+        }
+        if (crystalCountSliderEl) {
+            crystalCountSliderEl.value = this.settings.crystalCount;
+            document.getElementById('crystalCountValue').textContent = this.settings.crystalCount;
+        }
+        if (textureDetailSliderEl) {
+            textureDetailSliderEl.value = this.settings.textureDetail;
+            document.getElementById('textureDetailValue').textContent = this.settings.textureDetail;
+        }
+        
+        // Update display values only (not the settings themselves)
+        document.getElementById('fovValue').textContent = this.settings.fov + '°';
+        document.getElementById('sensitivityValue').textContent = this.settings.sensitivity;
+        document.getElementById('masterVolumeValue').textContent = Math.round(this.settings.masterVolume * 100) + '%';
+        document.getElementById('musicVolumeValue').textContent = Math.round(this.settings.musicVolume * 100) + '%';
+        document.getElementById('sfxVolumeValue').textContent = Math.round(this.settings.sfxVolume * 100) + '%';
+        document.getElementById('cameraSpeedValue').textContent = this.settings.cameraSpeed;
+        document.getElementById('zoomSpeedValue').textContent = this.settings.zoomSpeed;
+        
+        if (headBobIntensitySliderEl && document.getElementById('headBobIntensityValue')) {
+            document.getElementById('headBobIntensityValue').textContent = this.settings.headBobIntensity;
+        }
+        if (movementTiltIntensitySliderEl && document.getElementById('movementTiltIntensityValue')) {
+            document.getElementById('movementTiltIntensityValue').textContent = this.settings.movementTiltIntensity;
+        }
+        if (depthOfFieldIntensitySliderEl && document.getElementById('depthOfFieldIntensityValue')) {
+            document.getElementById('depthOfFieldIntensityValue').textContent = this.settings.depthOfFieldIntensity;
+        }
     }
     
     applySettings() {
@@ -597,13 +640,110 @@ export class MenuSystem {
     
     showPauseSettings() {
         // Show settings but remember we came from pause menu
-        this.currentSection = 'pauseMenu'; // Keep track of where we came from
+        this.previousSection = 'pauseMenu'; // Keep track of where we came from
         this.showSettings();
-        
-        // Update the settings back button to return to pause menu
-        const cancelButton = document.querySelector('.menu-actions .action-button.secondary');
-        if (cancelButton) {
-            cancelButton.onclick = () => this.showPauseMenu();
+    }
+    
+    goBackFromSettings() {
+        // Check if we're in a paused game or main menu
+        if (this.previousSection === 'pauseMenu') {
+            // We came from pause menu, go back to pause menu
+            this.showPauseMenu();
+            this.previousSection = null; // Reset
+        } else {
+            // We're in main menu, go back to main menu
+            this.showMainMenu();
         }
+    }
+    
+    // World Generation Settings
+    updateWorldSeed(value) {
+        this.settings.worldSeed = value ? parseInt(value) : null;
+        console.log('World seed set to:', this.settings.worldSeed || 'Random');
+    }
+    
+    updateTerrainSize(value) {
+        this.settings.terrainSize = parseInt(value);
+        document.getElementById('terrainSizeValue').textContent = value;
+        console.log('Terrain size set to:', value);
+    }
+    
+    updateHeightVariation(value) {
+        this.settings.heightVariation = parseFloat(value);
+        document.getElementById('heightVariationValue').textContent = value;
+        console.log('Height variation set to:', value);
+    }
+    
+    updateTreeCount(value) {
+        this.settings.treeCount = parseInt(value);
+        document.getElementById('treeCountValue').textContent = value;
+        console.log('Tree count set to:', value);
+    }
+    
+    updateTreasureCount(value) {
+        this.settings.treasureCount = parseInt(value);
+        document.getElementById('treasureCountValue').textContent = value;
+        console.log('Treasure count set to:', value);
+    }
+    
+    updateCrystalCount(value) {
+        this.settings.crystalCount = parseInt(value);
+        document.getElementById('crystalCountValue').textContent = value;
+        console.log('Crystal count set to:', value);
+    }
+    
+    updateTextureDetail(value) {
+        this.settings.textureDetail = parseInt(value);
+        document.getElementById('textureDetailValue').textContent = value;
+        console.log('Texture detail set to:', value);
+    }
+    
+    randomizeWorld() {
+        // Generate random values for all world settings
+        this.settings.worldSeed = Math.floor(Math.random() * 1000000);
+        this.settings.terrainSize = 50 + Math.floor(Math.random() * 150); // 50-200
+        this.settings.heightVariation = 1 + Math.random() * 6; // 1-7
+        this.settings.treeCount = 10 + Math.floor(Math.random() * 40); // 10-50
+        this.settings.treasureCount = 3 + Math.floor(Math.random() * 12); // 3-15
+        this.settings.crystalCount = 5 + Math.floor(Math.random() * 15); // 5-20
+        this.settings.textureDetail = [256, 512, 1024][Math.floor(Math.random() * 3)];
+        
+        // Update UI
+        this.applySettingsToUI();
+        console.log('🎲 World settings randomized!');
+    }
+    
+    resetWorldDefaults() {
+        // Reset to default values
+        this.settings.worldSeed = null;
+        this.settings.terrainSize = 100;
+        this.settings.heightVariation = 3.0;
+        this.settings.treeCount = 25;
+        this.settings.treasureCount = 6;
+        this.settings.crystalCount = 10;
+        this.settings.textureDetail = 512;
+        
+        // Update UI
+        this.applySettingsToUI();
+        console.log('🔄 World settings reset to defaults');
+    }
+    
+    getWorldConfig() {
+        return {
+            seed: this.settings.worldSeed,
+            terrainSize: this.settings.terrainSize,
+            heightVariation: this.settings.heightVariation,
+            treeCount: this.settings.treeCount,
+            treasureCount: this.settings.treasureCount,
+            crystalCount: this.settings.crystalCount,
+            textureDetail: this.settings.textureDetail
+        };
+    }
+
+    hideAllSections() {
+        const sections = document.querySelectorAll('.menu-section');
+        sections.forEach(section => {
+            section.classList.add('hidden');
+        });
     }
 } 

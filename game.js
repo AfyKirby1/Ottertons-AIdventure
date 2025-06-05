@@ -91,6 +91,16 @@ export class AdventureGame {
         // Camera controller
         this.cameraController = null;
         
+        // Pointer lock state
+        this.wasPointerLocked = false;
+        this.pointerLockCooldown = false;
+        this.lastPointerLockChange = 0;
+        
+        // Window resize handler
+        window.addEventListener('resize', () => {
+            this.engine.resize();
+        });
+        
         this.init();
     }
     
@@ -116,125 +126,46 @@ export class AdventureGame {
     }
     
     async init() {
-        console.log('[DEBUG] AdventureGame.init() started.');
-        if (typeof BABYLON !== 'undefined' && BABYLON.FreeCamera && BABYLON.FreeCamera.prototype) {
-                    // console.log('[DEBUG] init: typeof BABYLON.FreeCamera.prototype.setParent:', typeof BABYLON.FreeCamera.prototype.setParent);
-        // console.log('[DEBUG] init: typeof BABYLON.FreeCamera.prototype.attachControls:', typeof BABYLON.FreeCamera.prototype.attachControls);
-        } else {
-            console.log('[DEBUG] init: BABYLON.FreeCamera or its prototype is not (yet) fully defined.');
-        }
-
-        this.engine = new Engine(this.canvas, true);
-        this.scene = new Scene(this.engine);
-        
-        // Game state
-        this.gameStarted = false;
-        this.inventoryOpen = false;
-        this.isJumping = false;
-        
-        // Movement state
-        this.keys = {
-            forward: false,
-            backward: false,
-            left: false,
-            right: false,
-            jump: false,
-            run: false,
-            crouch: false
-        };
-        
-        // Default key bindings
-        this.keybinds = {
-            forward: 'KeyW',
-            backward: 'KeyS',
-            left: 'KeyA',
-            right: 'KeyD',
-            jump: 'Space',
-            interact: 'KeyE',
-            run: 'ShiftLeft',
-            inventory: 'KeyI'
-        };
-        
-        // Player stats
-        this.playerStats = {
-            health: 100,
-            maxHealth: 100,
-            experience: 0,
-            level: 1
-        };
-        
-        // Inventory system
-        this.inventory = [];
-        this.selectedSlot = 0;
-        this.maxInventorySlots = 8;
-        
-        // Interactables array
-        this.interactables = [];
-        
-        // Physics world reference
-        this.physicsPlugin = null;
-        
-        // Camera controller
-        this.cameraController = null;
-        
         try {
-            const babylonLoaded = await new Promise((resolve, reject) => {
-                if (BABYLON && Engine && Scene && Vector3 && Color3 && HemisphericLight && DirectionalLight && ShadowGenerator && MeshBuilder && StandardMaterial && PhysicsImpostor && FreeCamera) {
-                    resolve(true);
-                } else {
-                    // This part might be tricky if imports are not global immediately
-                    // Consider a more robust check if needed, or rely on Babylon's own ready events
-                    setTimeout(() => resolve(BABYLON && Engine), 100); // Simple check
-                }
-            });
-
-            if (!babylonLoaded) {
-                console.error("Babylon.js core components not available after delay.");
-                alert("Error: Babylon.js failed to load properly.");
-                return;
-            }
-            console.log('Babylon.js loaded successfully');
+            console.log('🎮 Initializing AIdventure Game...');
             
-            this.initializePhysics();
+            // Initialize physics first
+            await this.initializePhysics();
             
-            this.createLighting();
-            this.createPlayer(); // Create player first
+            // Create player
+            this.createPlayer();
             
-            // Initialize camera controller after player is created
+            // Create camera controller
             this.cameraController = new CameraController(this.scene, this.canvas, this.player);
             this.camera = this.cameraController.camera; // Keep reference for compatibility
             
-            console.log('[DEBUG] init: After camera controller - Camera created successfully');
-
-            // Initialize world manager and create world
-            this.worldManager = new WorldManager(this.scene, this.interactables);
+            // Create lighting
+            this.createLighting();
+            
+            // Get world configuration from menu system
+            const worldConfig = window.menuSystem ? window.menuSystem.getWorldConfig() : {};
+            console.log('🌍 Using world config:', worldConfig);
+            
+            // Create world manager with configuration
+            this.worldManager = new WorldManager(this.scene, this.interactables, worldConfig);
             await this.worldManager.generateWorld();
             
+            // Set up controls
+            this.setupPointerLock();
+            this.setupKeyboardControls();
             this.setupUI();
-            this.setupKeyboardControls(); // Set up keyboard controls
-            this.setupPointerLock(); // Set up pointer lock
             
+            // Start render loop
             this.engine.runRenderLoop(() => {
-                if (this.gameStarted && !this.gamePaused) {
-                    this.update();
-                }
+                this.update();
                 this.scene.render();
             });
             
-            window.addEventListener('resize', () => {
-                this.engine.resize();
-            });
-            
-            console.log('Adventure Game initialized! Auto-starting game...');
-            
-            setTimeout(() => {
-                console.log('[DEBUG] Starting game after initialization delay...');
-                this.startGame();
-            }, 1000); // Delay to allow menu system to potentially interact
+            console.log('✅ Game initialization complete!');
             
         } catch (error) {
-            console.error('Error initializing game:', error);
-            alert('Error starting the game: ' + error.message);
+            console.error('❌ Game initialization failed:', error);
+            throw error;
         }
     }
     
@@ -310,11 +241,20 @@ export class AdventureGame {
             this.lastPointerLockChange = now;
             
             if (document.pointerLockElement === this.canvas) {
+                // Pointer lock acquired - ensure controls are attached
                 this.cameraController.attachControls();
                 this.wasPointerLocked = true; // Track that we had pointer lock
                 this.pointerLockCooldown = false;
+                console.log('Pointer lock acquired - camera controls active');
             } else {
-                this.cameraController.detachControls();
+                // Pointer lock lost - but keep controls attached for immediate response
+                // Only detach if game is paused or inventory is open
+                if (this.gamePaused || this.inventoryOpen) {
+                    this.cameraController.detachControls();
+                    console.log('Pointer lock lost - camera controls disabled (paused/inventory)');
+                } else {
+                    console.log('Pointer lock lost - camera controls remain active');
+                }
                 
                 // If we had pointer lock and game is active, treat as escape press
                 // (Browser automatically releases pointer lock on Escape)
@@ -449,19 +389,50 @@ export class AdventureGame {
 
         // Position camera for first-person view using camera controller
         if (this.cameraController && this.player) {
-            // Camera controller handles positioning automatically
+            // Camera controller already has controls attached from init
+            // Just ensure they're enabled
             this.cameraController.attachControls();
+            
+            // Apply any menu settings immediately
+            if (window.menuSystem && window.menuSystem.settings) {
+                this.updateCameraSettings({
+                    sensitivity: window.menuSystem.settings.sensitivity,
+                    invertY: window.menuSystem.settings.invertMouseY,
+                    smoothing: window.menuSystem.settings.smoothCamera,
+                    headBobEnabled: window.menuSystem.settings.headBobEnabled,
+                    headBobIntensity: window.menuSystem.settings.headBobIntensity,
+                    movementTiltEnabled: window.menuSystem.settings.movementTiltEnabled,
+                    movementTiltIntensity: window.menuSystem.settings.movementTiltIntensity * 0.04
+                });
+                console.log('Applied menu camera settings:', window.menuSystem.settings.sensitivity);
+            }
+            
+            console.log('Game started - camera controls ready');
         }
 
-        // Lock pointer to canvas for mouse look
-        this.canvas.requestPointerLock = this.canvas.requestPointerLock || this.canvas.mozRequestPointerLock || this.canvas.webkitRequestPointerLock;
-        this.canvas.requestPointerLock();
+        // Lock pointer to canvas for mouse look - delay to ensure UI is ready
+        setTimeout(() => {
+            this.canvas.requestPointerLock = this.canvas.requestPointerLock || this.canvas.mozRequestPointerLock || this.canvas.webkitRequestPointerLock;
+            this.canvas.requestPointerLock().catch((error) => {
+                console.log('Initial pointer lock request failed:', error.message);
+                // Add click listener for manual activation
+                const clickHandler = () => {
+                    this.canvas.requestPointerLock();
+                    this.canvas.removeEventListener('click', clickHandler);
+                };
+                this.canvas.addEventListener('click', clickHandler);
+            });
+        }, 100);
     }
     
 
     
     update() {
-        if (!this.player || !this.gameStarted || this.gamePaused) return;
+        // Always render the scene, but only update game logic when not paused
+        if (!this.player || !this.gameStarted) return;
+        
+        // If game is paused, stop all game logic but continue rendering
+        if (this.gamePaused) return;
 
         let moveSpeed = 20; // Base movement speed (reduced by 50% from 40 to 20)
         
@@ -575,6 +546,11 @@ export class AdventureGame {
         // Update camera controller AFTER movement
         const deltaTime = this.engine.getDeltaTime() / 1000;
         this.cameraController.update(deltaTime, this.keys);
+        
+        // Update world manager with player position for map expansion
+        if (this.worldManager) {
+            this.worldManager.updatePlayerPosition(this.player.position);
+        }
     }
     
     interact() {
@@ -603,16 +579,32 @@ export class AdventureGame {
         
         // Special effects based on type
         if (interactable.type === 'crystal') {
-            // Restore health
-            this.playerStats.health = Math.min(this.playerStats.maxHealth, this.playerStats.health + 25);
+            // Enhanced crystal effects - restore health and mana
+            this.playerStats.health = Math.min(this.playerStats.maxHealth, this.playerStats.health + 50); // More healing for enhanced crystals
             this.updateHealthBar();
+            
+            // Visual effect - briefly brighten the scene
+            if (this.scene.getLightByName('hemispheric')) {
+                const light = this.scene.getLightByName('hemispheric');
+                const originalIntensity = light.intensity;
+                light.intensity = 1.5;
+                setTimeout(() => {
+                    light.intensity = originalIntensity;
+                }, 500);
+            }
             
             // Remove crystal
             interactable.mesh.dispose();
             this.interactables = this.interactables.filter(item => item !== interactable);
         } else if (interactable.type === 'treasure') {
+            // Enhanced treasure effects
+            this.playerStats.health = Math.min(this.playerStats.maxHealth, this.playerStats.health + 25); // Some health from artifacts
+            this.updateHealthBar();
+            
             // Change chest color to indicate it's been opened
-            interactable.mesh.material.diffuseColor = new Color3(0.3, 0.2, 0.1);
+            if (interactable.mesh.material) {
+                interactable.mesh.material.diffuseColor = new Color3(0.3, 0.2, 0.1);
+            }
             
             // Remove from interactables
             this.interactables = this.interactables.filter(item => item !== interactable);
@@ -622,6 +614,8 @@ export class AdventureGame {
     addToInventory(itemName) {
         // Define item properties
         const itemTypes = {
+            'Gold Coins & Artifacts': { icon: '🪙', type: 'gold', description: 'Shiny gold coins and magical artifacts from an ancient treasure chest.', stackable: true, maxStack: 99 },
+            'Health & Mana Restoration': { icon: '💎', type: 'crystal', description: 'A powerful magical crystal that restores both health and mana.', stackable: true, maxStack: 10 },
             'Gold Coins': { icon: '🪙', type: 'gold', description: 'Shiny gold coins. Currency of the realm.', stackable: true, maxStack: 99 },
             'Health Restoration': { icon: '💎', type: 'crystal', description: 'A magical crystal that restores health.', stackable: true, maxStack: 10 },
             'Magic Potion': { icon: '🧪', type: 'potion', description: 'A mysterious potion with unknown effects.', stackable: true, maxStack: 5 },
@@ -903,6 +897,16 @@ export class AdventureGame {
         this.isPausingGame = true; // Set flag before changing state
         this.gamePaused = true;
         
+        // Pause the scene's animation groups to stop crystal spinning
+        this.scene.animationGroups.forEach(animGroup => {
+            animGroup.pause();
+        });
+        
+        // Pause physics if available
+        if (this.scene.isPhysicsEnabled() && this.scene.getPhysicsEngine()) {
+            this.scene.getPhysicsEngine().setTimeStep(0);
+        }
+        
         // Exit pointer lock when paused
         if (document.pointerLockElement) {
             document.exitPointerLock();
@@ -929,6 +933,16 @@ export class AdventureGame {
     resumeGame() {
         console.log('Game resumed');
         this.gamePaused = false;
+        
+        // Resume animation groups
+        this.scene.animationGroups.forEach(animGroup => {
+            animGroup.play();
+        });
+        
+        // Resume physics if available
+        if (this.scene.isPhysicsEnabled() && this.scene.getPhysicsEngine()) {
+            this.scene.getPhysicsEngine().setTimeStep(1/60); // Reset to normal timestep
+        }
         
         // Hide pause menu
         const pauseMenu = document.getElementById('pauseMenuSection');

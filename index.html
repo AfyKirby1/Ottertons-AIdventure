@@ -65,16 +65,18 @@
                         <h2>Settings</h2>
                     </div>
                     
-                    <div class="settings-tabs">
-                        <button class="settings-tab active" onclick="showSettingsTab('video')">Video</button>
+                    <div class="settings-nav">
+                        <button class="settings-tab active" onclick="showSettingsTab('graphics')">Graphics</button>
                         <button class="settings-tab" onclick="showSettingsTab('audio')">Audio</button>
-                        <button class="settings-tab" onclick="showSettingsTab('keybind')">Keybinds</button>
-                        <button class="settings-tab" onclick="showSettingsTab('camera')">Camera Controls</button>
+                        <button class="settings-tab" onclick="showSettingsTab('controls')">Controls</button>
+                        <button class="settings-tab" onclick="showSettingsTab('camera')">Camera</button>
+                        <button class="settings-tab" onclick="showSettingsTab('world')">World Gen</button>
+                        <button class="settings-tab" onclick="showSettingsTab('keybinds')">Keybinds</button>
                     </div>
                     
                     <div class="settings-content">
-                        <!-- Video Settings -->
-                        <div id="videoSettings" class="settings-panel active">
+                        <!-- Graphics Settings -->
+                        <div id="graphicsSettings" class="settings-panel active">
                             <div class="setting-group">
                                 <label class="setting-label">Graphics Quality</label>
                                 <select class="setting-input" id="graphicsQuality">
@@ -96,9 +98,9 @@
                             <div class="setting-group">
                                 <div class="setting-row">
                                     <label class="setting-label">Mouse Sensitivity</label>
-                                    <span class="setting-value" id="sensitivityValue">1.0</span>
+                                    <span class="setting-value" id="sensitivityValue">200</span>
                                 </div>
-                                <input type="range" class="setting-slider" id="sensitivitySlider" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateSensitivity(this.value)">
+                                <input type="range" class="setting-slider" id="sensitivitySlider" min="100" max="500" step="10" value="200" oninput="updateSensitivity(this.value)">
                             </div>
                         </div>
                         
@@ -107,30 +109,30 @@
                             <div class="setting-group">
                                 <div class="setting-row">
                                     <label class="setting-label">Master Volume</label>
-                                    <span class="setting-value" id="masterVolumeValue">100%</span>
+                                    <span class="setting-value" id="masterVolumeValue">70%</span>
                                 </div>
-                                <input type="range" class="setting-slider" id="masterVolumeSlider" min="0" max="100" value="100" oninput="updateMasterVolume(this.value)">
+                                <input type="range" class="setting-slider" id="masterVolumeSlider" min="0" max="1" step="0.1" value="0.7" oninput="updateMasterVolume(this.value)">
                             </div>
                             
                             <div class="setting-group">
                                 <div class="setting-row">
                                     <label class="setting-label">Music Volume</label>
-                                    <span class="setting-value" id="musicVolumeValue">80%</span>
+                                    <span class="setting-value" id="musicVolumeValue">50%</span>
                                 </div>
-                                <input type="range" class="setting-slider" id="musicVolumeSlider" min="0" max="100" value="80" oninput="updateMusicVolume(this.value)">
+                                <input type="range" class="setting-slider" id="musicVolumeSlider" min="0" max="1" step="0.1" value="0.5" oninput="updateMusicVolume(this.value)">
                             </div>
                             
                             <div class="setting-group">
                                 <div class="setting-row">
-                                    <label class="setting-label">Sound Effects Volume</label>
-                                    <span class="setting-value" id="sfxVolumeValue">90%</span>
+                                    <label class="setting-label">SFX Volume</label>
+                                    <span class="setting-value" id="sfxVolumeValue">80%</span>
                                 </div>
-                                <input type="range" class="setting-slider" id="sfxVolumeSlider" min="0" max="100" value="90" oninput="updateSFXVolume(this.value)">
+                                <input type="range" class="setting-slider" id="sfxVolumeSlider" min="0" max="1" step="0.1" value="0.8" oninput="updateSFXVolume(this.value)">
                             </div>
                         </div>
                         
-                        <!-- Keybind Settings -->
-                        <div id="keybindSettings" class="settings-panel">
+                        <!-- Controls Settings -->
+                        <div id="controlsSettings" class="settings-panel">
                             <div class="setting-group">
                                 <div class="keybind-item">
                                     <span class="keybind-label">Move Forward</span>
@@ -167,12 +169,15 @@
                             </div>
                         </div>
                         
-                        <!-- Camera Controls Settings -->
+                        <!-- Camera Settings -->
                         <div id="cameraSettings" class="settings-panel">
                             <div class="setting-group">
                                 <div class="setting-row">
                                     <label class="setting-label">Invert Mouse Y</label>
                                     <input type="checkbox" class="setting-checkbox" id="invertMouseY" onchange="updateInvertMouseY(this.checked)">
+                                </div>
+                                <div class="setting-description">
+                                    Flips vertical mouse movement - moving mouse up looks down and vice versa (like flight controls)
                                 </div>
                             </div>
                             
@@ -182,6 +187,9 @@
                                     <span class="setting-value" id="cameraSpeedValue">1.0</span>
                                 </div>
                                 <input type="range" class="setting-slider" id="cameraSpeedSlider" min="0.1" max="10.0" step="0.1" value="1.0" oninput="updateCameraSpeed(this.value)">
+                                <div class="setting-description">
+                                    Overall camera movement speed multiplier - affects how fast you turn and move the view
+                                </div>
                             </div>
                             
                             <div class="setting-group">
@@ -190,12 +198,18 @@
                                     <span class="setting-value" id="zoomSpeedValue">1.0</span>
                                 </div>
                                 <input type="range" class="setting-slider" id="zoomSpeedSlider" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateZoomSpeed(this.value)">
+                                <div class="setting-description">
+                                    How fast the camera zooms in/out when using scroll wheel (currently for future features)
+                                </div>
                             </div>
                             
                             <div class="setting-group">
                                 <div class="setting-row">
                                     <label class="setting-label">Smooth Camera</label>
                                     <input type="checkbox" class="setting-checkbox" id="smoothCamera" checked onchange="updateSmoothCamera(this.checked)">
+                                </div>
+                                <div class="setting-description">
+                                    Adds subtle smoothing to camera movement for a more cinematic feel (may reduce responsiveness)
                                 </div>
                             </div>
                             
@@ -205,14 +219,20 @@
                                     <label class="setting-label">Head Bob</label>
                                     <input type="checkbox" class="setting-checkbox" id="headBobEnabled" checked onchange="updateHeadBobEnabled(this.checked)">
                                 </div>
+                                <div class="setting-description">
+                                    Realistic head movement that sways slightly when walking/running - adds immersion but may cause motion sickness
+                                </div>
                             </div>
                             
                             <div class="setting-group">
                                 <div class="setting-row">
                                     <label class="setting-label">Head Bob Intensity</label>
-                                    <span class="setting-value" id="headBobIntensityValue">0.5</span>
+                                    <span class="setting-value" id="headBobIntensityValue">0.3</span>
                                 </div>
-                                <input type="range" class="setting-slider" id="headBobIntensitySlider" min="0.1" max="2.0" step="0.1" value="0.5" oninput="updateHeadBobIntensity(this.value)">
+                                <input type="range" class="setting-slider" id="headBobIntensitySlider" min="0.1" max="1.0" step="0.1" value="0.3" oninput="updateHeadBobIntensity(this.value)">
+                                <div class="setting-description">
+                                    How pronounced the head bobbing effect is - lower values are more subtle, higher values more noticeable
+                                </div>
                             </div>
                             
                             <!-- Movement Tilt Settings -->
@@ -221,14 +241,20 @@
                                     <label class="setting-label">Movement Tilt</label>
                                     <input type="checkbox" class="setting-checkbox" id="movementTiltEnabled" checked onchange="updateMovementTiltEnabled(this.checked)">
                                 </div>
+                                <div class="setting-description">
+                                    Camera tilts slightly when strafing left/right - mimics natural body lean during movement
+                                </div>
                             </div>
                             
                             <div class="setting-group">
                                 <div class="setting-row">
                                     <label class="setting-label">Movement Tilt Intensity</label>
-                                    <span class="setting-value" id="movementTiltIntensityValue">0.5</span>
+                                    <span class="setting-value" id="movementTiltIntensityValue">1.0</span>
                                 </div>
-                                <input type="range" class="setting-slider" id="movementTiltIntensitySlider" min="0.1" max="2.0" step="0.1" value="0.5" oninput="updateMovementTiltIntensity(this.value)">
+                                <input type="range" class="setting-slider" id="movementTiltIntensitySlider" min="0.1" max="2.0" step="0.1" value="1.0" oninput="updateMovementTiltIntensity(this.value)">
+                                <div class="setting-description">
+                                    How much the camera tilts during side movement - subtle tilting feels more natural
+                                </div>
                             </div>
                             
                             <!-- Depth of Field Settings -->
@@ -237,21 +263,120 @@
                                     <label class="setting-label">Depth of Field</label>
                                     <input type="checkbox" class="setting-checkbox" id="depthOfFieldEnabled" onchange="updateDepthOfFieldEnabled(this.checked)">
                                 </div>
+                                <div class="setting-description">
+                                    Blurs distant objects for a more realistic camera effect - may impact performance on slower devices
+                                </div>
                             </div>
                             
                             <div class="setting-group">
                                 <div class="setting-row">
                                     <label class="setting-label">Depth of Field Intensity</label>
-                                    <span class="setting-value" id="depthOfFieldIntensityValue">1.0</span>
+                                    <span class="setting-value" id="depthOfFieldIntensityValue">0.5</span>
                                 </div>
-                                <input type="range" class="setting-slider" id="depthOfFieldIntensitySlider" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateDepthOfFieldIntensity(this.value)">
+                                <input type="range" class="setting-slider" id="depthOfFieldIntensitySlider" min="0.1" max="2.0" step="0.1" value="0.5" oninput="updateDepthOfFieldIntensity(this.value)">
+                                <div class="setting-description">
+                                    How strong the blur effect is on out-of-focus objects - higher values create more dramatic blur
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- World Generation Settings -->
+                        <div id="worldSettings" class="settings-panel">
+                            <div class="setting-group">
+                                <h3>World Generation</h3>
+                                
+                                <div class="setting-row">
+                                    <label class="setting-label">World Seed</label>
+                                    <input type="number" class="setting-input" id="worldSeed" placeholder="Random" oninput="updateWorldSeed(this.value)">
+                                </div>
+                                
+                                <div class="setting-row">
+                                    <label class="setting-label">Terrain Size</label>
+                                    <span class="setting-value" id="terrainSizeValue">100</span>
+                                </div>
+                                <input type="range" class="setting-slider" id="terrainSizeSlider" min="50" max="200" step="10" value="100" oninput="updateTerrainSize(this.value)">
+                                
+                                <div class="setting-row">
+                                    <label class="setting-label">Height Variation</label>
+                                    <span class="setting-value" id="heightVariationValue">3.0</span>
+                                </div>
+                                <input type="range" class="setting-slider" id="heightVariationSlider" min="0.5" max="8.0" step="0.5" value="3.0" oninput="updateHeightVariation(this.value)">
+                                
+                                <div class="setting-row">
+                                    <label class="setting-label">Tree Count</label>
+                                    <span class="setting-value" id="treeCountValue">25</span>
+                                </div>
+                                <input type="range" class="setting-slider" id="treeCountSlider" min="5" max="50" step="5" value="25" oninput="updateTreeCount(this.value)">
+                                
+                                <div class="setting-row">
+                                    <label class="setting-label">Treasure Count</label>
+                                    <span class="setting-value" id="treasureCountValue">6</span>
+                                </div>
+                                <input type="range" class="setting-slider" id="treasureCountSlider" min="2" max="15" step="1" value="6" oninput="updateTreasureCount(this.value)">
+                                
+                                <div class="setting-row">
+                                    <label class="setting-label">Crystal Count</label>
+                                    <span class="setting-value" id="crystalCountValue">10</span>
+                                </div>
+                                <input type="range" class="setting-slider" id="crystalCountSlider" min="3" max="20" step="1" value="10" oninput="updateCrystalCount(this.value)">
+                                
+                                <div class="setting-row">
+                                    <label class="setting-label">Texture Detail</label>
+                                    <span class="setting-value" id="textureDetailValue">512</span>
+                                </div>
+                                <input type="range" class="setting-slider" id="textureDetailSlider" min="256" max="1024" step="128" value="512" oninput="updateTextureDetail(this.value)">
+                                
+                                <div class="setting-row">
+                                    <button class="menu-button" onclick="randomizeWorld()">🎲 Randomize All</button>
+                                    <button class="menu-button" onclick="resetWorldDefaults()">🔄 Reset Defaults</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Keybinds Settings -->
+                        <div id="keybindsSettings" class="settings-panel">
+                            <div class="setting-group">
+                                <h3>Key Bindings</h3>
+                                <div class="keybind-item">
+                                    <span class="keybind-label">Move Forward</span>
+                                    <button class="keybind-button" onclick="recordKeybind('forward', this)">W</button>
+                                </div>
+                                <div class="keybind-item">
+                                    <span class="keybind-label">Move Backward</span>
+                                    <button class="keybind-button" onclick="recordKeybind('backward', this)">S</button>
+                                </div>
+                                <div class="keybind-item">
+                                    <span class="keybind-label">Move Left</span>
+                                    <button class="keybind-button" onclick="recordKeybind('left', this)">A</button>
+                                </div>
+                                <div class="keybind-item">
+                                    <span class="keybind-label">Move Right</span>
+                                    <button class="keybind-button" onclick="recordKeybind('right', this)">D</button>
+                                </div>
+                                <div class="keybind-item">
+                                    <span class="keybind-label">Run</span>
+                                    <button class="keybind-button" onclick="recordKeybind('run', this)">L-Shift</button>
+                                </div>
+                                <div class="keybind-item">
+                                    <span class="keybind-label">Interact</span>
+                                    <button class="keybind-button" onclick="recordKeybind('interact', this)">E</button>
+                                </div>
+                                <div class="keybind-item">
+                                    <span class="keybind-label">Jump</span>
+                                    <button class="keybind-button" onclick="recordKeybind('jump', this)">Space</button>
+                                </div>
+                                <div class="keybind-item">
+                                    <span class="keybind-label">Open Inventory</span>
+                                    <button class="keybind-button" onclick="recordKeybind('inventory', this)">I</button>
+                                </div>
                             </div>
                         </div>
                     </div>
                     
                     <div class="menu-actions">
+                        <button class="action-button" onclick="applySettings()">Apply</button>
                         <button class="action-button" onclick="saveSettings()">Save</button>
-                        <button class="action-button secondary" onclick="showMainMenu()">Cancel</button>
+                        <button class="action-button secondary" onclick="goBackFromSettings()">Cancel</button>
                     </div>
                 </div>
             </div>
